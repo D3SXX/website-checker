@@ -1,44 +1,28 @@
-# Website checker v0.1 alpha build 2 by D3SXX  
+# Website checker v0.1 alpha build 3 by D3SXX  
 
 import tkinter as tk
 from tkinter import ttk 
 import requests
-import website_processing
+from bs4 import BeautifulSoup
+import datetime
 
 def fill_website_entry():
     website_entry.delete(0, tk.END)
-    website_entry.insert(0, "https://hinta.fi/")
+    website_entry.insert(0, "https://revolt.dn.ua/table/16")
 
 def add_website_content():
-    global old_website, old_text, entry_xl,items_amount_old,website_content_listbox
-    entry_xl_new = []
+    global old_website
     website = website_entry.get()
     if len(website) < 1:
         website = old_website
-        print("new website link wasn't provided, using the old one")
     print(f"Trying {website}")
     if website:
         old_website = website
         try:
             response = requests.get(website)
-            print(f"Got response {response.status_code}")
+            print(f"got response {response.status_code}")
             if response.status_code == 200:
-                print("Checking if the page haven't changed")
-                if response.text == old_text:
-                    print("The data is the same from the last time, returning..")
-                    return
-                else:
-                    print(f"Page size was changed, proceeding (new {len(response.text)} != past {len(old_text)})")
-                    old_text = response.text 
-                entry, entry_xl_new, items_amount_old = website_processing.process_website_content(response.text,items_amount_old,website_content_listbox)
-                if entry_xl == entry_xl_new:
-                    print("Got the same data, returning..")
-                    return
-                else:
-                    entry_xl = entry_xl_new
-                website_content_listbox.insert(tk.END, entry)
-                refresh_xl_window()
-                refresh_listbox_focus()
+                process_website_content(response.text)
                 xl_button.config(state=tk.NORMAL)
             else:
                 xl_button.config(state=tk.DISABLED)
@@ -46,6 +30,43 @@ def add_website_content():
         except requests.RequestException:
             website_content_listbox.insert(tk.END, f"Failed to fetch content from {website}")
         website_entry.delete(0, tk.END)
+
+def process_website_content(content):
+    global old_soup, entry_xl, items_amount_old
+    items_amount = 0
+    
+    soup = BeautifulSoup(content, 'html.parser')
+    if old_soup != soup:
+        old_soup = soup
+        print("Analyzing new data")
+        entry_xl = []
+    else:
+        print("The data is the same from the last time, returning..")
+        return
+    
+    product_cards = soup.find_all('div', class_='prod-card')
+    
+    for product_card in product_cards:
+        link_tag = product_card.find('a', class_='photo-wrap')
+        link = link_tag['href'] if link_tag else "No link available"
+        prod_name_tag = product_card.find('div', class_='prod-name')
+        name_tag = prod_name_tag.find('a', href=True)
+        name = name_tag.get_text() if name_tag else "Unknown GPU"
+        price_tag = product_card.find('div', class_='carpet')
+        price = price_tag.get_text(strip=True).replace(" ", "")[:-1] if price_tag else "Unknown price"
+        stock_parent_tag = product_card.find('div', class_='prod-status')
+        stock_tag = stock_parent_tag.find('div', class_='count') if stock_parent_tag else None
+        stock = stock_tag.get_text(strip=True) if stock_tag else "Stock info unavailable"
+        entry = f"Item: {name} Price: {price} In Stock: {stock} Link: {link}"
+        entry_xl.append((name, price, stock, link))
+        #website_content_listbox.insert(tk.END, entry)
+        items_amount += 1
+    current_time = datetime.datetime.now().strftime("%H:%M:%S")
+    entry = f"{current_time} - The site's listings were updated (from {items_amount_old} to {items_amount})..."  
+    website_content_listbox.insert(tk.END, entry)
+    items_amount_old = items_amount
+    refresh_xl_window()
+    refresh_listbox_focus()
 
 def clear_list():
     website_content_listbox.delete(0, tk.END)
@@ -73,7 +94,7 @@ def on_xl_window():
     list_window.geometry(f"{window_width}x{window_height}")
     list_window.minsize(width=window_width, height=window_height)
 
-    columns = ("Item","Seller","Price","Currency")
+    columns = ("Item", "Price", "In stock", "Link")
     xl_listbox = tk.ttk.Treeview(list_window, columns=columns, show="headings")
     for col_index, col in enumerate(columns):
         xl_listbox.heading(col, text=col, command=lambda col_index=col_index: sort_column_xl(xl_listbox, col_index))
@@ -83,8 +104,8 @@ def on_xl_window():
     xl_listbox.pack(fill="both", expand=True)
 
 def sort_column_xl(xl_listbox, col_index, descending=False):
-    if col_index == 2:
-        items = [(float(xl_listbox.set(item, col_index)), item) for item in xl_listbox.get_children()]
+    if col_index == 1:  # "PRICE" column
+        items = [(float(xl_listbox.set(item, col_index).replace('₽', '')), item) for item in xl_listbox.get_children()]
     else:
         items = [(xl_listbox.set(item, col_index), item) for item in xl_listbox.get_children()]
 
@@ -109,7 +130,7 @@ def refresh_listbox_focus():
 
 entry_xl = []
 old_website = ""
-old_text = ""
+old_soup = ""
 items_amount_old = 0
 
 root = tk.Tk()
@@ -136,7 +157,7 @@ website_label.grid(row=0, column=0, columnspan=2, pady=5)
 website_entry = tk.Entry(root)
 website_entry.grid(row=0, column=2, columnspan=2, pady=5)
 
-fill_button = tk.Button(root, text="hinta", command=fill_website_entry)
+fill_button = tk.Button(root, text="revolt", command=fill_website_entry)
 fill_button.grid(row=0, column=4, pady=5)
 
 add_button = tk.Button(root, text="Analyze", command=add_website_content)
