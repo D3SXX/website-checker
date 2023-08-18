@@ -1,4 +1,4 @@
-# Website checker v0.1 alpha build 3 by D3SXX  
+# Website checker v0.1 alpha build 4 by D3SXX  
 
 import tkinter as tk
 from tkinter import ttk 
@@ -10,44 +10,48 @@ def fill_website_entry():
     website_entry.insert(0, "https://hinta.fi/")
 
 def add_website_content():
-    global old_website, old_text, entry_xl,items_amount_old,website_content_listbox
+    global old_website, old_text, entry_xl,items_amount_old,website_content_listbox, columns
     entry_xl_new = []
     website = website_entry.get()
     if len(website) < 1:
         website = old_website
-        print("new website link wasn't provided, using the old one")
+        print("Warning - A new website link wasn't provided, using the old_website")
     print(f"Trying {website}")
     if website:
         old_website = website
         try:
-            response = requests.get(website)
+            response = requests.get(website,timeout=5)
             print(f"Got response {response.status_code}")
             if response.status_code == 200:
                 print("Checking if the page haven't changed")
                 if response.text == old_text:
-                    print("The data is the same from the last time, returning..")
+                    print("Warning - The data is the same from the last time, returning..")
                     return
                 else:
                     print(f"Page size was changed, proceeding (new {len(response.text)} != past {len(old_text)})")
                     old_text = response.text 
                 try:
-                    entry, entry_xl_new, items_amount_old = website_processing.process_website_content(website,response.text,items_amount_old,website_content_listbox)
-                except:
-                    print("Page could not be identified, returning..")
+                    entry, entry_xl_new, items_amount_old, columns = website_processing.process_website_content(website,response.text,items_amount_old,website_content_listbox)
+                except Exception as e:
+                    print("Warning - Page could not be identified (or an error occurred), returning..")
+                    print(e)
                     return
                 if entry_xl == entry_xl_new:
-                    print("Got the same data, returning..")
+                    print(f"Warning - Got the same data (new {len(entry_xl_new)} == past {len(entry_xl)}), returning..")
                     return
                 else:
                     entry_xl = entry_xl_new
+                print("Data check successful, trying to open list_window")
                 website_content_listbox.insert(tk.END, entry)
                 refresh_xl_window()
                 refresh_listbox_focus()
                 xl_button.config(state=tk.NORMAL)
             else:
+                print("Error - Failed to fetch content")
                 xl_button.config(state=tk.DISABLED)
                 website_content_listbox.insert(tk.END, f"Failed to fetch content from {website}")
         except requests.RequestException:
+            print("Error - Failed to fetch content after 5 seconds of trying")
             website_content_listbox.insert(tk.END, f"Failed to fetch content from {website}")
         website_entry.delete(0, tk.END)
 
@@ -69,7 +73,7 @@ def refresh_xl_window():
     on_xl_window()
 
 def on_xl_window():
-    global list_window
+    global list_window, columns
     list_window = tk.Toplevel(root)
     list_window.title(f"Items listing (currently displaying {items_amount_old} items)")
     window_width = 800
@@ -77,7 +81,9 @@ def on_xl_window():
     list_window.geometry(f"{window_width}x{window_height}")
     list_window.minsize(width=window_width, height=window_height)
 
-    columns = ("Item","Seller","Price","Currency")
+    if len(columns) < 1:
+        columns = ("Item","Seller","Price","Currency")  # Fallback option
+
     xl_listbox = tk.ttk.Treeview(list_window, columns=columns, show="headings")
     for col_index, col in enumerate(columns):
         xl_listbox.heading(col, text=col, command=lambda col_index=col_index: sort_column_xl(xl_listbox, col_index))
@@ -86,8 +92,29 @@ def on_xl_window():
         xl_listbox.insert('', tk.END, values=value)
     xl_listbox.pack(fill="both", expand=True)
 
+    # Define a function to handle the selection
+    def handle_selection(event):
+        selected_item = xl_listbox.selection()  # Get the selected item's ID
+        if selected_item:
+            item_values = xl_listbox.item(selected_item, 'values')
+            try:
+                link_place = columns.index("Link")
+            except:
+                return
+            global old_website
+            old_website = item_values[link_place]
+            print(f"Trying to redirect to {old_website}")
+            # Call the function you want to execute with the selected item's values
+            add_website_content()
+
+    # Bind the function to mouse left-click and Enter key press events
+    xl_listbox.bind("<ButtonRelease-1>", handle_selection)  # Mouse left-click
+    xl_listbox.bind("<Return>", handle_selection)           # Enter key
+
+
 def sort_column_xl(xl_listbox, col_index, descending=False):
-    if col_index == 2:
+    global columns
+    if columns[col_index] == "Price":
         items = [(float(xl_listbox.set(item, col_index)), item) for item in xl_listbox.get_children()]
     else:
         items = [(xl_listbox.set(item, col_index), item) for item in xl_listbox.get_children()]
@@ -115,6 +142,7 @@ entry_xl = []
 old_website = ""
 old_text = ""
 items_amount_old = 0
+columns = ""
 
 root = tk.Tk()
 root.title("Website Product List")
