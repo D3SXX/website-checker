@@ -2,6 +2,7 @@ import datetime
 import json
 from bs4 import BeautifulSoup
 import re
+import requests
 
 def process_website_content(website,content,items_amount_old, website_content_listbox):
     print("Identifying the website")
@@ -11,6 +12,7 @@ def process_website_content(website,content,items_amount_old, website_content_li
 
     return entry, entry_xl, items_amount_old, columns
 def hinta_process_website_content(website,content,items_amount_old, website_content_listbox):
+
     items_amount = 0
     entry_xl = []
     soup = BeautifulSoup(content, 'html.parser')
@@ -19,29 +21,48 @@ def hinta_process_website_content(website,content,items_amount_old, website_cont
     if "hinta.fi/g" in website:
         print("Scanning category list (/g)")
         
-        product_rows = soup.find_all('tr', class_='hvjs-product-row')
+        items_amount = 0
+        page_number = 1
+        while True:
+            try:
+                if page_number == 10:
+                    print("10 Pages were scanned, ending job")
+                    break
+                print(f"Trying to get page {page_number}: {website}?l=1&p={page_number}")
+                response = requests.get(f"{website}?l=1&p={page_number}", timeout=5)
+                print(f"Got response {response.status_code}")
+                if response.status_code == 200:
+                    soup = BeautifulSoup(response.content, 'html.parser')
+                    product_rows = soup.find_all('tr', class_='hvjs-product-row')
 
-        for row in product_rows:
-            product_name_tag = row.find('strong', class_='hv--name')
-            product_name = product_name_tag.get_text() if product_name_tag else "Unknown Product"
-            link_tag = row.find('a', href=True)
-            category_link = link_tag['href'] if link_tag else "Unknown Link"
-            price_tag = row.find('td', class_='hv--price')
-            price = price_tag.a.get_text() if price_tag else "Unknown Price"
-            if not price[-1].isdigit():
-                currency = price[-1]
-                price = price[:-2]
-                price = price.replace(',', '.')
-                price = price.replace(' ', '')
-            else:
-                currency = "Unknown Currency"
-            entry_xl.append((product_name, price,currency,"https://hinta.fi" + category_link))
-            items_amount += 1
+                    for row in product_rows:
+                        product_name_tag = row.find('strong', class_='hv--name')
+                        product_name = product_name_tag.get_text() if product_name_tag else "Unknown Product"
+                        link_tag = row.find('a', href=True)
+                        category_link = link_tag['href'] if link_tag else "Unknown Link"
+                        price_tag = row.find('td', class_='hv--price')
+                        price = price_tag.a.get_text() if price_tag else "Unknown Price"
+
+                        currency = price[-1] if not price[-1].isdigit() else "Unknown Currency"
+                        price = price.replace(',', '.').replace(' ', '')[:-1] if currency != "Unknown Currency" else price
+
+                        entry_xl.append((product_name, price, currency, f"https://hinta.fi{category_link}"))
+                        items_amount += 1
+
+                    if not product_rows:
+                        print("No more product rows found, ending job")
+                        break
+
+                    page_number += 1
+
+            except requests.RequestException:
+                print("Error - Failed to fetch content after 5 seconds of trying")
+                break
 
         current_time = datetime.datetime.now().strftime("%H:%M:%S")
         entry = f"{current_time} - The site's listings were updated (from {items_amount_old} to {items_amount})..."
         items_amount_old = items_amount
-        columns = ("Item","Price","Currency","Link")
+        columns = ("Item", "Price", "Currency", "Link")
         return entry, entry_xl, items_amount_old, columns
     elif re.match(r'https://hinta\.fi/\d+/.*', website):
         print("Scanning product list (\d+/.*)")
@@ -70,6 +91,8 @@ def hinta_process_website_content(website,content,items_amount_old, website_cont
         items_amount_old = items_amount
         columns = ("Item","Seller","Price","Currency")
         return entry, entry_xl, items_amount_old, columns
+    
+
     elif "hinta.fi" in website:
         print("Scanning main page")
         category_links = soup.find_all('a', class_='hv-menu-i-a')
