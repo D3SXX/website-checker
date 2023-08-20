@@ -20,13 +20,22 @@ def hinta_process_website_content(website,content,items_amount_old, website_cont
 
     if "hinta.fi/g" in website:
         print("Scanning category list (/g)")
-        
+        total_items_element = soup.find('span', class_='hv-text-strong')
+        if total_items_element:
+            total_items = int(total_items_element.text.replace(',', '.').replace(' ', ''))
+        else:
+            total_items = 15 # Failback
+        print(f"The amount of expected elements is {total_items_element}")
+
         items_amount = 0
+        actual_items_amount = 0
         page_number = 1
         while True:
             try:
-                if page_number == 10:
-                    print("10 Pages were scanned, ending job")
+                skipped_items = 0
+                if items_amount == total_items:
+                    print(f"Exiting job ({items_amount} == {total_items})")
+                    items_amount = actual_items_amount
                     break
                 print(f"Trying to get page {page_number}: {website}?l=1&p={page_number}")
                 response = requests.get(f"{website}?l=1&p={page_number}", timeout=5)
@@ -46,13 +55,16 @@ def hinta_process_website_content(website,content,items_amount_old, website_cont
                         currency = price[-1] if not price[-1].isdigit() else "Unknown Currency"
                         price = price.replace(',', '.').replace(' ', '')[:-1] if currency != "Unknown Currency" else price
 
-                        entry_xl.append((product_name, price, currency, f"https://hinta.fi{category_link}"))
+                        if (f"'https://hinta.fi{category_link}'") in str(entry_xl):
+                            skipped_items += 1
+                        else:
+                            entry_xl.append((product_name, price, currency, f"https://hinta.fi{category_link}"))
+                            actual_items_amount += 1
                         items_amount += 1
-
-                    if not product_rows:
-                        print("No more product rows found, ending job")
-                        break
-
+                    if skipped_items != 0:
+                        print(f"Just skipped {skipped_items} items")
+                    print(f"Progress - > {items_amount}(actual {actual_items_amount}) out {total_items}")
+                    
                     page_number += 1
 
             except requests.RequestException:
@@ -85,14 +97,11 @@ def hinta_process_website_content(website,content,items_amount_old, website_cont
 
             except json.JSONDecodeError:
                 pass  # Skip this script if it's not valid JSON
-
         current_time = datetime.datetime.now().strftime("%H:%M:%S")
         entry = f"{current_time} - The site's listings were updated (from {items_amount_old} to {items_amount})..."
         items_amount_old = items_amount
         columns = ("Item","Seller","Price","Currency")
         return entry, entry_xl, items_amount_old, columns
-    
-
     elif "hinta.fi" in website:
         print("Scanning main page")
         category_links = soup.find_all('a', class_='hv-menu-i-a')
