@@ -9,6 +9,11 @@ def fill_website_entry():
     website_entry.delete(0, tk.END)
     website_entry.insert(0, "https://hinta.fi/")
 
+def update_progress(value, maxvalue):
+    progress_bar["value"] = value
+    progress_bar["maximum"] = maxvalue
+    list_window.update_idletasks()
+
 def add_website_content():
     global old_website, old_text, entry_xl,items_amount_old,website_content_listbox, columns
     entry_xl_new = []
@@ -31,7 +36,7 @@ def add_website_content():
                     print(f"Page size was changed, proceeding (new {len(response.text)} != past {len(old_text)})")
                     old_text = response.text 
                 try:
-                    entry, entry_xl_new, items_amount_old, columns = website_processing.process_website_content(website,response.text,items_amount_old,website_content_listbox)
+                    entry, entry_xl_new, items_amount_old, columns = website_processing.process_website_content(website,response.text,items_amount_old,website_content_listbox,update_progress)
                 except Exception as e:
                     print("Warning - Page could not be identified (or an error occurred), returning..")
                     print(e)
@@ -73,7 +78,7 @@ def refresh_xl_window():
     on_xl_window()
 
 def on_xl_window():
-    global list_window, columns
+    global list_window, columns, progress_bar
     list_window = tk.Toplevel(root)
     list_window.title(f"Items listing (currently displaying {items_amount_old} items)")
     window_width = 800
@@ -91,6 +96,9 @@ def on_xl_window():
     for value in entry_xl:
         xl_listbox.insert('', tk.END, values=value)
     xl_listbox.pack(fill="both", expand=True)
+
+    progress_bar = ttk.Progressbar(list_window, mode="determinate")
+    progress_bar.pack(fill="x")
 
     # Define a function to handle the selection
     def handle_selection(event):
