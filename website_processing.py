@@ -4,14 +4,14 @@ from bs4 import BeautifulSoup
 import re
 import requests
 
-def process_website_content(website,content,items_amount_old, website_content_listbox):
+def process_website_content(website,content,items_amount_old, website_content_listbox,progress_callback):
     print("Identifying the website")
     if "hinta.fi" in website:
         print("Hinta.fi identified")
-        entry, entry_xl, items_amount_old, columns = hinta_process_website_content(website,content,items_amount_old, website_content_listbox)
+        entry, entry_xl, items_amount_old, columns = hinta_process_website_content(website,content,items_amount_old, website_content_listbox,progress_callback)
 
     return entry, entry_xl, items_amount_old, columns
-def hinta_process_website_content(website,content,items_amount_old, website_content_listbox):
+def hinta_process_website_content(website,content,items_amount_old, website_content_listbox,progress_callback):
 
     items_amount = 0
     entry_xl = []
@@ -54,6 +54,8 @@ def hinta_process_website_content(website,content,items_amount_old, website_cont
 
                         currency = price[-1] if not price[-1].isdigit() else "Unknown Currency"
                         price = price.replace(',', '.').replace(' ', '')[:-1] if currency != "Unknown Currency" else price
+
+                        progress_callback(items_amount,total_items)
 
                         if (f"'https://hinta.fi{category_link}'") in str(entry_xl):
                             skipped_items += 1
