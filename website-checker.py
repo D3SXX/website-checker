@@ -1,4 +1,4 @@
-# Website checker v0.1 alpha build 4 by D3SXX  
+# Website checker v0.1 alpha build 5 by D3SXX  
 
 import tkinter as tk
 from tkinter import ttk 
@@ -10,9 +10,12 @@ def fill_website_entry():
     website_entry.insert(0, "https://hinta.fi/")
 
 def update_progress(value, maxvalue):
-    progress_bar["value"] = value
-    progress_bar["maximum"] = maxvalue
-    list_window.update_idletasks()
+    try:
+        progress_bar["value"] = value
+        progress_bar["maximum"] = maxvalue
+        list_window.update_idletasks()
+    except:
+        print("Could not update progress_bar")
 
 def add_website_content():
     global old_website, old_text, entry_xl,items_amount_old,website_content_listbox, columns
@@ -39,7 +42,8 @@ def add_website_content():
                     entry, entry_xl_new, items_amount_old, columns = website_processing.process_website_content(website,response.text,items_amount_old,website_content_listbox,update_progress)
                 except Exception as e:
                     print("Warning - Page could not be identified (or an error occurred), returning..")
-                    print(e)
+                    print("",type(e).__name__, "–", e)
+                    #print(e)
                     return
                 if entry_xl == entry_xl_new:
                     print(f"Warning - Got the same data (new {len(entry_xl_new)} == past {len(entry_xl)}), returning..")
@@ -78,7 +82,7 @@ def refresh_xl_window():
     on_xl_window()
 
 def on_xl_window():
-    global list_window, columns, progress_bar
+    global list_window, columns, progress_bar,list_window
     list_window = tk.Toplevel(root)
     list_window.title(f"Items listing (currently displaying {items_amount_old} items)")
     window_width = 800
@@ -107,6 +111,8 @@ def on_xl_window():
             item_values = xl_listbox.item(selected_item, 'values')
             try:
                 link_place = columns.index("Link")
+                if link_place == "":
+                    return
             except:
                 return
             global old_website
