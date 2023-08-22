@@ -4,14 +4,30 @@ from bs4 import BeautifulSoup
 import re
 import requests
 
+back_page = []
+back_page_index = 0
+
 def process_website_content(website,content,items_amount_old, website_content_listbox,progress_callback):
+    global back_page_index,back_page
     print("Identifying the website")
+
+    if website in back_page:
+        print(f"Removing {website} from the back list")
+        back_page_index -= 1
+        back_page = back_page.pop(back_page_index)
+    else:
+        print(f"Adding {website} to the back list")
+        back_page.append(website)
+        back_page_index += 1
+        
     if "hinta.fi" in website:
         print("Hinta.fi identified")
         entry, entry_xl, items_amount_old, columns = hinta_process_website_content(website,content,items_amount_old, website_content_listbox,progress_callback)
 
     return entry, entry_xl, items_amount_old, columns
 def hinta_process_website_content(website,content,items_amount_old, website_content_listbox,progress_callback):
+
+    global back_page,back_page_index
 
     items_amount = 0
     entry_xl = []
@@ -20,6 +36,9 @@ def hinta_process_website_content(website,content,items_amount_old, website_cont
 
     if "hinta.fi/g" in website:
         print("Scanning category list (/g)")
+
+        entry_xl.append(("↵ Return to the previous page","","","https://hinta.fi"))
+
         total_items_element = soup.find('span', class_='hv-text-strong')
         if total_items_element:
             total_items = int(total_items_element.text.replace(',', '.').replace(' ', ''))
@@ -30,6 +49,7 @@ def hinta_process_website_content(website,content,items_amount_old, website_cont
         items_amount = 0
         actual_items_amount = 0
         page_number = 1
+
         while True:
             try:
                 skipped_items = 0
@@ -37,7 +57,7 @@ def hinta_process_website_content(website,content,items_amount_old, website_cont
                     print(f"Exiting job ({items_amount} == {total_items})")
                     items_amount = actual_items_amount
                     break
-                print(f"Trying to get page {page_number}: {website}?l=1&p={page_number}")
+                print(f"Trying to get page {page_number}: {website}?l=1&p={page_number}",end=" ")
                 response = requests.get(f"{website}?l=1&p={page_number}", timeout=5)
                 print(f"Got response {response.status_code}")
                 if response.status_code == 200:
@@ -65,7 +85,7 @@ def hinta_process_website_content(website,content,items_amount_old, website_cont
                         items_amount += 1
                     if skipped_items != 0:
                         print(f"Just skipped {skipped_items} items")
-                    print(f"Progress - > {items_amount}(actual {actual_items_amount}) out {total_items}")
+                    print(f"Progress - > {items_amount}(actual {actual_items_amount}) out of {total_items}")
                     
                     page_number += 1
 
@@ -80,6 +100,10 @@ def hinta_process_website_content(website,content,items_amount_old, website_cont
         return entry, entry_xl, items_amount_old, columns
     elif re.match(r'https://hinta\.fi/\d+/.*', website):
         print("Scanning product list (\d+/.*)")
+        progress_callback(0,1)
+
+        entry_xl.append(("↵ Return to the previous page","","","",back_page[back_page_index-2]))
+
         for script in script_tags:
             try:
                 product_data = json.loads(script.string)
@@ -102,9 +126,11 @@ def hinta_process_website_content(website,content,items_amount_old, website_cont
         current_time = datetime.datetime.now().strftime("%H:%M:%S")
         entry = f"{current_time} - The site's listings were updated (from {items_amount_old} to {items_amount})..."
         items_amount_old = items_amount
-        columns = ("Item","Seller","Price","Currency")
+        columns = ("Item","Seller","Price","Currency","Link")
+        progress_callback(1,1)
         return entry, entry_xl, items_amount_old, columns
     elif "hinta.fi" in website:
+        progress_callback(0,1)
         print("Scanning main page")
         category_links = soup.find_all('a', class_='hv-menu-i-a')
         entry_xl = []
@@ -128,7 +154,9 @@ def hinta_process_website_content(website,content,items_amount_old, website_cont
         
         items_amount_old = items_amount
         items_amount = len(entry_xl)
-
+        # Reset list
+        back_page_index = 0
+        back_page = []
         columns = ("Category", "Link")
-        
+        progress_callback(1,1)
         return entry, entry_xl, items_amount_old, columns
