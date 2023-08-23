@@ -1,4 +1,4 @@
-# Website checker v0.1 alpha build 5 by D3SXX  
+# Website checker v0.1 alpha build 6 by D3SXX  
 
 import tkinter as tk
 from tkinter import ttk 
@@ -17,13 +17,16 @@ def update_progress(value, maxvalue):
     except:
         print("Could not update progress_bar")
 
-def add_website_content():
+def add_website_content(redirect = False, redirect_link = ""):
     global old_website, old_text, entry_xl,items_amount_old,website_content_listbox, columns
     entry_xl_new = []
-    website = website_entry.get()
-    if len(website) < 1:
-        website = old_website
-        print("Warning - A new website link wasn't provided, using the old_website")
+    if redirect == False:
+        website = website_entry.get()
+        if len(website) < 1:
+            website = old_website
+            print("Warning - A new website link wasn't provided, using the old_website")
+    else:
+        website = redirect_link
     print(f"Trying {website}")
     if website:
         old_website = website
@@ -74,15 +77,42 @@ def save_list():
             file.write(content + '\n')
 
 def refresh_xl_window():
+    global xl_listbox
+    print("Trying to refresh list_window")
+    try:
+        print("Destroy xl_window")
+        xl_listbox.destroy()
+        print("Create xl_window")
+        xl_listbox = tk.ttk.Treeview(frame_centre, columns=columns, show="headings")
+        print("Fill xl_window")
+        for col_index, col in enumerate(columns):
+            xl_listbox.heading(col, text=col, command=lambda col_index=col_index: sort_column_xl(xl_listbox, col_index))
+        for value in entry_xl:
+            xl_listbox.insert('', tk.END, values=value)
+        xl_listbox.pack(fill="both", expand=True)
+        xl_listbox.bind("<ButtonRelease-1>", handle_selection)  # Mouse left-click
+        xl_listbox.bind("<Return>", handle_selection)           # Enter key
+        website_entry.configure(state="normal")
+        website_entry.delete(0, tk.END)
+        website_entry.insert(0, f"{old_website}")
+        website_entry.configure(state="readonly")
+        list_window.title(f"Items listing (currently displaying {items_amount_old} items)")
+
+        list_window.update_idletasks()
+        list_window.update()
+        return
+
+    except Exception as e:
+        print("The window wasn't openned yet or an error occured, destroying list_window")
+        print(e)
     try:
         list_window.destroy()
     except:
         print("The window wasn't openned yet")
-    print("Openning list_window")
     on_xl_window()
 
 def on_xl_window():
-    global list_window, columns, progress_bar,list_window
+    global list_window, columns, progress_bar,list_window,xl_listbox,website_entry,frame_centre,handle_selection
     list_window = tk.Toplevel(root)
     list_window.title(f"Items listing (currently displaying {items_amount_old} items)")
     window_width = 800
@@ -90,10 +120,30 @@ def on_xl_window():
     list_window.geometry(f"{window_width}x{window_height}")
     list_window.minsize(width=window_width, height=window_height)
 
+    list_window.grid_rowconfigure(1, weight=1)
+    list_window.grid_columnconfigure(0, weight=1)
+
+    frame_top = tk.Frame(master=list_window)
+    frame_centre = tk.Frame(master=list_window)
+    frame_bottom = tk.Frame(master=list_window)
+
+    frame_top.grid(row=0, column=0, sticky="nsew")
+    frame_centre.grid(row=1, column=0, sticky="nsew")
+    frame_bottom.grid(row=2, column=0, sticky="nsew")
+
     if len(columns) < 1:
         columns = ("Item","Seller","Price","Currency")  # Fallback option
 
-    xl_listbox = tk.ttk.Treeview(list_window, columns=columns, show="headings")
+    website_entry = tk.Entry(frame_top)
+    website_entry.grid(row=0, column=0)
+    website_entry.insert(0, old_website)
+    website_entry.configure(state="readonly")
+
+    back_button = tk.Button(frame_top, text="Return", command=add_website_content)
+    back_button.grid(row=0, column=1)
+
+    xl_listbox = tk.ttk.Treeview(frame_centre, columns=columns, show="headings")
+
     for col_index, col in enumerate(columns):
         xl_listbox.heading(col, text=col, command=lambda col_index=col_index: sort_column_xl(xl_listbox, col_index))
 
@@ -101,7 +151,8 @@ def on_xl_window():
         xl_listbox.insert('', tk.END, values=value)
     xl_listbox.pack(fill="both", expand=True)
 
-    progress_bar = ttk.Progressbar(list_window, mode="determinate")
+
+    progress_bar = ttk.Progressbar(frame_bottom, mode="determinate")
     progress_bar.pack(fill="x")
 
     # Define a function to handle the selection
@@ -111,15 +162,16 @@ def on_xl_window():
             item_values = xl_listbox.item(selected_item, 'values')
             try:
                 link_place = columns.index("Link")
-                if link_place == "":
-                    return
             except:
                 return
             global old_website
-            old_website = item_values[link_place]
+            try:
+                old_website = item_values[link_place]
+            except:
+                return
             print(f"Trying to redirect to {old_website}")
             # Call the function you want to execute with the selected item's values
-            add_website_content()
+            add_website_content(True, old_website)
 
     # Bind the function to mouse left-click and Enter key press events
     xl_listbox.bind("<ButtonRelease-1>", handle_selection)  # Mouse left-click
