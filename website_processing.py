@@ -4,30 +4,21 @@ from bs4 import BeautifulSoup
 import re
 import requests
 
-back_page = []
-back_page_index = 0
 
-def process_website_content(website,content,items_amount_old, website_content_listbox,progress_callback):
+
+def process_website_content(website,content,items_amount_old, website_content_listbox,progress_callback,edit_back_page):
     global back_page_index,back_page
     print("Identifying the website")
-
-    if website in back_page:
-        print(f"Removing {website} from the back list")
-        back_page_index -= 1
-        back_page = back_page.pop(back_page_index)
-    else:
-        print(f"Adding {website} to the back list")
-        back_page.append(website)
-        back_page_index += 1
         
     if "hinta.fi" in website:
         print("Hinta.fi identified")
         entry, entry_xl, items_amount_old, columns = hinta_process_website_content(website,content,items_amount_old, website_content_listbox,progress_callback)
-
+    
+    edit_back_page(website)
     return entry, entry_xl, items_amount_old, columns
 def hinta_process_website_content(website,content,items_amount_old, website_content_listbox,progress_callback):
 
-    global back_page,back_page_index
+    #global back_page,back_page_index
 
     items_amount = 0
     entry_xl = []
@@ -75,7 +66,7 @@ def hinta_process_website_content(website,content,items_amount_old, website_cont
                         currency = price[-1] if not price[-1].isdigit() else "Unknown Currency"
                         price = price.replace(',', '.').replace(' ', '')[:-1] if currency != "Unknown Currency" else price
 
-                        progress_callback(items_amount,total_items)
+                        
 
                         if (f"'https://hinta.fi{category_link}'") in str(entry_xl):
                             skipped_items += 1
@@ -83,6 +74,7 @@ def hinta_process_website_content(website,content,items_amount_old, website_cont
                             entry_xl.append((product_name, price, currency, f"https://hinta.fi{category_link}"))
                             actual_items_amount += 1
                         items_amount += 1
+                        progress_callback(items_amount,total_items)
                     if skipped_items != 0:
                         print(f"Just skipped {skipped_items} items")
                     print(f"Progress - > {items_amount}(actual {actual_items_amount}) out of {total_items}")
@@ -102,7 +94,7 @@ def hinta_process_website_content(website,content,items_amount_old, website_cont
         print("Scanning product list (\d+/.*)")
         progress_callback(0,1)
 
-        entry_xl.append(("↵ Return to the previous page","","","",back_page[back_page_index-2]))
+        #entry_xl.append(("↵ Return to the previous page","","","",back_page[back_page_index-2]))
 
         for script in script_tags:
             try:
@@ -154,9 +146,6 @@ def hinta_process_website_content(website,content,items_amount_old, website_cont
         
         items_amount_old = items_amount
         items_amount = len(entry_xl)
-        # Reset list
-        back_page_index = 0
-        back_page = []
         columns = ("Category", "Link")
         progress_callback(1,1)
         return entry, entry_xl, items_amount_old, columns
