@@ -1,4 +1,4 @@
-# Website checker v0.1 alpha build 6 by D3SXX  
+# Website checker v0.1 alpha build 7 by D3SXX  
 
 import tkinter as tk
 from tkinter import ttk 
@@ -8,6 +8,21 @@ import website_processing
 def fill_website_entry():
     website_entry.delete(0, tk.END)
     website_entry.insert(0, "https://hinta.fi/")
+
+def on_back_page(newwebsite = None):
+    global back_page_index,back_page
+    if newwebsite == None:
+        print(f"Removing {back_page[back_page_index-1]} from the back_page[{back_page_index-1}]")
+        back_page.pop(back_page_index-1)
+        back_page_index -= 1
+        add_website_content(True,back_page[back_page_index-1])
+    elif newwebsite == "clear":
+        back_page_index = 0
+        back_page.clear()
+    else:
+        print(f"Adding {newwebsite} to the back_page")
+        back_page_index += 1
+        back_page.append(newwebsite)
 
 def update_progress(value, maxvalue):
     try:
@@ -42,7 +57,7 @@ def add_website_content(redirect = False, redirect_link = ""):
                     print(f"Page size was changed, proceeding (new {len(response.text)} != past {len(old_text)})")
                     old_text = response.text 
                 try:
-                    entry, entry_xl_new, items_amount_old, columns = website_processing.process_website_content(website,response.text,items_amount_old,website_content_listbox,update_progress)
+                    entry, entry_xl_new, items_amount_old, columns = website_processing.process_website_content(website,response.text,items_amount_old,website_content_listbox,update_progress,on_back_page)
                 except Exception as e:
                     print("Warning - Page could not be identified (or an error occurred), returning..")
                     print("",type(e).__name__, "–", e)
@@ -77,25 +92,32 @@ def save_list():
             file.write(content + '\n')
 
 def refresh_xl_window():
-    global xl_listbox
+    global xl_listbox,xl_scrollbar
     print("Trying to refresh list_window")
     try:
-        print("Destroy xl_window")
+        print("Destroying xl_listbox",end="-->")
         xl_listbox.destroy()
-        print("Create xl_window")
+        print("Creating xl_listbox",end="-->")
         xl_listbox = tk.ttk.Treeview(frame_centre, columns=columns, show="headings")
-        print("Fill xl_window")
+        print("Filling xl_window",end="-->")
         for col_index, col in enumerate(columns):
             xl_listbox.heading(col, text=col, command=lambda col_index=col_index: sort_column_xl(xl_listbox, col_index))
         for value in entry_xl:
             xl_listbox.insert('', tk.END, values=value)
-        xl_listbox.pack(fill="both", expand=True)
+        xl_listbox.pack(fill="both", expand=True,side="left")
         xl_listbox.bind("<ButtonRelease-1>", handle_selection)  # Mouse left-click
         xl_listbox.bind("<Return>", handle_selection)           # Enter key
+        print("Refreshing xl_scrollbar",end="-->")
+        xl_scrollbar.destroy()
+        xl_scrollbar = tk.Scrollbar(frame_centre, orient="vertical", command=xl_listbox.yview)
+        xl_listbox.configure(yscrollcommand=xl_scrollbar.set)
+        xl_scrollbar.pack(fill="y", side="right")
+        print("Refreshing website_entry",end="-->")
         website_entry.configure(state="normal")
         website_entry.delete(0, tk.END)
         website_entry.insert(0, f"{old_website}")
         website_entry.configure(state="readonly")
+        print("Refreshing window title")
         list_window.title(f"Items listing (currently displaying {items_amount_old} items)")
 
         list_window.update_idletasks()
@@ -112,7 +134,8 @@ def refresh_xl_window():
     on_xl_window()
 
 def on_xl_window():
-    global list_window, columns, progress_bar,list_window,xl_listbox,website_entry,frame_centre,handle_selection
+    global list_window, columns, progress_bar,list_window,xl_listbox,website_entry,frame_centre, xl_scrollbar,handle_selection
+
     list_window = tk.Toplevel(root)
     list_window.title(f"Items listing (currently displaying {items_amount_old} items)")
     window_width = 800
@@ -124,7 +147,7 @@ def on_xl_window():
     list_window.grid_columnconfigure(0, weight=1)
 
     frame_top = tk.Frame(master=list_window)
-    frame_centre = tk.Frame(master=list_window)
+    frame_centre = tk.Frame(master=list_window)  # Renamed to frame_centre
     frame_bottom = tk.Frame(master=list_window)
 
     frame_top.grid(row=0, column=0, sticky="nsew")
@@ -132,25 +155,30 @@ def on_xl_window():
     frame_bottom.grid(row=2, column=0, sticky="nsew")
 
     if len(columns) < 1:
-        columns = ("Item","Seller","Price","Currency")  # Fallback option
+        columns = ("Item", "Seller", "Price", "Currency")  # Fallback option
 
     website_entry = tk.Entry(frame_top)
     website_entry.grid(row=0, column=0)
     website_entry.insert(0, old_website)
     website_entry.configure(state="readonly")
 
-    back_button = tk.Button(frame_top, text="Return", command=add_website_content)
+    back_button = tk.Button(frame_top, text="Return", command=on_back_page)
     back_button.grid(row=0, column=1)
 
+    # Create and configure xl_listbox within frame_centre
     xl_listbox = tk.ttk.Treeview(frame_centre, columns=columns, show="headings")
 
     for col_index, col in enumerate(columns):
         xl_listbox.heading(col, text=col, command=lambda col_index=col_index: sort_column_xl(xl_listbox, col_index))
 
     for value in entry_xl:
-        xl_listbox.insert('', tk.END, values=value)
-    xl_listbox.pack(fill="both", expand=True)
+        xl_listbox.insert("", tk.END, values=value)
 
+    xl_scrollbar = tk.Scrollbar(frame_centre, orient="vertical", command=xl_listbox.yview)
+    xl_listbox.configure(yscrollcommand=xl_scrollbar.set)
+
+    xl_listbox.pack(fill="both", expand=True,side="left")
+    xl_scrollbar.pack(fill="y", side="right")
 
     progress_bar = ttk.Progressbar(frame_bottom, mode="determinate")
     progress_bar.pack(fill="x")
@@ -209,6 +237,9 @@ old_website = ""
 old_text = ""
 items_amount_old = 0
 columns = ""
+
+back_page = []
+back_page_index = 0
 
 root = tk.Tk()
 root.title("Website Product List")
