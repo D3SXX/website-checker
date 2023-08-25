@@ -1,4 +1,4 @@
-# Website checker v0.1 alpha build 7 by D3SXX  
+# Website checker v0.1 alpha build 8 by D3SXX  
 
 import tkinter as tk
 from tkinter import ttk 
@@ -13,16 +13,17 @@ def on_back_page(newwebsite = None):
     global back_page_index,back_page
     if newwebsite == None:
         print(f"Removing {back_page[back_page_index-1]} from the back_page[{back_page_index-1}]")
-        back_page.pop(back_page_index-1)
         back_page_index -= 1
+        back_page.pop(back_page_index)
         add_website_content(True,back_page[back_page_index-1])
     elif newwebsite == "clear":
         back_page_index = 0
         back_page.clear()
     else:
-        print(f"Adding {newwebsite} to the back_page")
+        print(f"Adding {newwebsite} to the back_page[{back_page_index}]")
         back_page_index += 1
         back_page.append(newwebsite)
+    print(back_page)
 
 def update_progress(value, maxvalue):
     try:
@@ -35,6 +36,10 @@ def update_progress(value, maxvalue):
 def add_website_content(redirect = False, redirect_link = ""):
     global old_website, old_text, entry_xl,items_amount_old,website_content_listbox, columns
     entry_xl_new = []
+    stop_flag = stop_checkbox_var.get()
+    if stop_flag:
+        stop_flag = stop_at
+        
     if redirect == False:
         website = website_entry.get()
         if len(website) < 1:
@@ -57,7 +62,7 @@ def add_website_content(redirect = False, redirect_link = ""):
                     print(f"Page size was changed, proceeding (new {len(response.text)} != past {len(old_text)})")
                     old_text = response.text 
                 try:
-                    entry, entry_xl_new, items_amount_old, columns = website_processing.process_website_content(website,response.text,items_amount_old,website_content_listbox,update_progress,on_back_page)
+                    entry, entry_xl_new, items_amount_old, columns = website_processing.process_website_content(website,response.text,items_amount_old,website_content_listbox,update_progress,on_back_page,stop_flag,redirect)
                 except Exception as e:
                     print("Warning - Page could not be identified (or an error occurred), returning..")
                     print("",type(e).__name__, "–", e)
@@ -147,7 +152,7 @@ def on_xl_window():
     list_window.grid_columnconfigure(0, weight=1)
 
     frame_top = tk.Frame(master=list_window)
-    frame_centre = tk.Frame(master=list_window)  # Renamed to frame_centre
+    frame_centre = tk.Frame(master=list_window)
     frame_bottom = tk.Frame(master=list_window)
 
     frame_top.grid(row=0, column=0, sticky="nsew")
@@ -200,6 +205,7 @@ def on_xl_window():
             print(f"Trying to redirect to {old_website}")
             # Call the function you want to execute with the selected item's values
             add_website_content(True, old_website)
+            on_back_page(old_website)
 
     # Bind the function to mouse left-click and Enter key press events
     xl_listbox.bind("<ButtonRelease-1>", handle_selection)  # Mouse left-click
@@ -221,7 +227,7 @@ def sort_column_xl(xl_listbox, col_index, descending=False):
     xl_listbox.heading(col_index, command=lambda: sort_column_xl(xl_listbox, col_index, not descending))
 
 def on_checkbox_clicked():
-    var = checkbox_var.get()
+    var = update_checkbox_var.get()
     print(f"Auto update is set to {bool(var)}")
     if var:
         add_website_content()
@@ -229,14 +235,32 @@ def on_checkbox_clicked():
         root.after(time_delay, on_checkbox_clicked)
         #root.after(3*1000, on_checkbox_clicked)
 
+def on_checkbox_stop_skip():
+    var = stop_checkbox_var.get()
+    print(f"Stop page is set to {bool(var)}")
+    if var:
+        stop_entry.config(state="normal")
+    else:
+        stop_entry.config(state="disabled")
+
 def refresh_listbox_focus():
     website_content_listbox.yview(tk.END)
+
+def update_stop_at(*args):
+    try:
+        new_stop_at = int(stop_entry_var.get())
+        global stop_at
+        stop_at = new_stop_at
+        print(f"Updated stop_at value ({stop_at})")
+    except:
+        pass  # Ignore non-integer values
 
 entry_xl = []
 old_website = ""
 old_text = ""
 items_amount_old = 0
 columns = ""
+stop_at = 10
 
 back_page = []
 back_page_index = 0
@@ -259,36 +283,63 @@ def resize(event):
 
 root.bind("<Configure>", resize)
 
-website_label = tk.Label(root, text="Enter a website:")
-website_label.grid(row=0, column=0, columnspan=2, pady=5)
+root.grid_rowconfigure(1, weight=1)
+root.grid_columnconfigure(0, weight=1)
 
-website_entry = tk.Entry(root)
-website_entry.grid(row=0, column=2, columnspan=2, pady=5)
+root_frame_top = tk.Frame(master=root)
+root_frame_centre = tk.Frame(master=root)
+root_frame_bottom = tk.Frame(master=root)
 
-fill_button = tk.Button(root, text="hinta", command=fill_website_entry)
-fill_button.grid(row=0, column=4, pady=5)
+root_frame_top.grid(row=0, column=0, sticky="nsew")
+root_frame_centre.grid(row=1, column=0, sticky="nsew")
+root_frame_bottom.grid(row=2, column=0, sticky="nsew")
 
-add_button = tk.Button(root, text="Analyze", command=add_website_content)
-add_button.grid(row=0, column=5, pady=5)
 
-xl_button = tk.Button(root, text="Open xl window", command=on_xl_window)
-xl_button.grid(row=1, column=0,padx=10, pady=5, columnspan=2)
+website_label = tk.Label(root_frame_top, text="Enter a website:")
+website_label.pack(side="left",padx=5,pady=5)
+
+website_entry = tk.Entry(root_frame_top)
+website_entry.pack(side="left")
+
+fill_button = tk.Button(root_frame_top, text="hinta", command=fill_website_entry)
+fill_button.pack(side="left",padx=5)
+
+add_button = tk.Button(root_frame_top, text="Analyze", command=add_website_content)
+add_button.pack(side="left")
+
+xl_button = tk.Button(root_frame_centre, text="Open xl window", command=on_xl_window)
+xl_button.pack(side="left",padx=5)
 if not entry_xl:
     xl_button.config(state=tk.DISABLED)
 
-checkbox_var = tk.IntVar()
+update_checkbox_var = tk.IntVar()
 
-checkbox = tk.Checkbutton(root, text="Auto Update", variable=checkbox_var, command=on_checkbox_clicked)
-checkbox.grid(row=1, column=3, pady=5)
+checkbox = tk.Checkbutton(root_frame_centre, text="Auto Update", variable=update_checkbox_var, command=on_checkbox_clicked)
+checkbox.pack(side="left")
+
+stop_checkbox_var = tk.IntVar()
+
+checkbox = tk.Checkbutton(root_frame_centre, text="Stop scan after", variable=stop_checkbox_var, command=on_checkbox_stop_skip)
+
+checkbox.pack(side="left")
+
+stop_entry_var = tk.IntVar()
+stop_entry_var.set(stop_at)
+
+stop_entry_var.trace("w", update_stop_at)
+
+
+stop_entry = tk.Entry(root_frame_centre,textvariable=stop_entry_var)
+stop_entry.pack(side="left")
+
+stop_entry.config(state="disabled")
 
 # Create a Frame to hold the listbox
-listbox_frame = tk.Frame(root)
-listbox_frame.grid(row=2, column=0, columnspan=6, padx=10, pady=5, sticky="nsew")
-listbox_frame.grid_rowconfigure(0, weight=1)
-listbox_frame.grid_columnconfigure(0, weight=1)
+listbox_frame = tk.Frame(root_frame_bottom)
+listbox_frame.pack(fill="both",padx=5)
 
 website_content_listbox = tk.Listbox(listbox_frame)
-website_content_listbox.pack(fill="both", expand=True)
+website_content_listbox.pack(fill="both", expand=True,side="left")
 
 scrollbar = tk.Scrollbar(listbox_frame, orient=tk.VERTICAL, command=website_content_listbox.yview)
 scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
