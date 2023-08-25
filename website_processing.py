@@ -6,17 +6,17 @@ import requests
 
 
 
-def process_website_content(website,content,items_amount_old, website_content_listbox,progress_callback,edit_back_page):
+def process_website_content(website,content,items_amount_old, website_content_listbox,progress_callback,edit_back_page,stop_flag,redirect):
     global back_page_index,back_page
     print("Identifying the website")
         
     if "hinta.fi" in website:
         print("Hinta.fi identified")
-        entry, entry_xl, items_amount_old, columns = hinta_process_website_content(website,content,items_amount_old, website_content_listbox,progress_callback)
-    
-    edit_back_page(website)
+        entry, entry_xl, items_amount_old, columns = hinta_process_website_content(website,content,items_amount_old, website_content_listbox,progress_callback,stop_flag)
+    if redirect == False:
+        edit_back_page(website)
     return entry, entry_xl, items_amount_old, columns
-def hinta_process_website_content(website,content,items_amount_old, website_content_listbox,progress_callback):
+def hinta_process_website_content(website,content,items_amount_old, website_content_listbox,progress_callback,stop_flag):
 
     #global back_page,back_page_index
 
@@ -44,7 +44,7 @@ def hinta_process_website_content(website,content,items_amount_old, website_cont
         while True:
             try:
                 skipped_items = 0
-                if items_amount == total_items:
+                if items_amount == total_items or page_number == stop_flag+1:
                     print(f"Exiting job ({items_amount} == {total_items})")
                     items_amount = actual_items_amount
                     break
@@ -98,6 +98,7 @@ def hinta_process_website_content(website,content,items_amount_old, website_cont
 
         for script in script_tags:
             try:
+
                 product_data = json.loads(script.string)
                 if "@type" in product_data and product_data["@type"] == "Product":
                     product_name = product_data["name"] if "name" in product_data else "Unknown Product"
