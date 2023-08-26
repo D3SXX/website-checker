@@ -1,4 +1,4 @@
-# Website checker v0.1 alpha build 8 by D3SXX  
+# Website checker v0.1 alpha build 9 by D3SXX  
 
 import tkinter as tk
 from tkinter import ttk 
@@ -6,25 +6,35 @@ import requests
 import website_processing
 
 def fill_website_entry():
-    website_entry.delete(0, tk.END)
-    website_entry.insert(0, "https://hinta.fi/")
+    root.after(0, lambda: website_entry_var.set("https://hinta.fi/"))
 
 def on_back_page(newwebsite = None):
-    global back_page_index,back_page
+    global back_page_index,back_page,back_button
     if newwebsite == None:
-        print(f"Removing {back_page[back_page_index-1]} from the back_page[{back_page_index-1}]")
-        back_page_index -= 1
+        if back_page_index < 0:
+            on_back_page("clear")
+            return
+        elif back_page_index == 0:
+            back_button.config(state="disabled")
+            add_website_content(True,back_page[back_page_index])
+            return
+        print(f"Removing {back_page[back_page_index]} from the back_page[{back_page_index}]")
         back_page.pop(back_page_index)
-        add_website_content(True,back_page[back_page_index-1])
+        back_page_index -= 1
+        add_website_content(True,back_page[back_page_index])
     elif newwebsite == "clear":
         back_page_index = 0
         back_page.clear()
+        print("back_page was cleared")
     else:
-        print(f"Adding {newwebsite} to the back_page[{back_page_index}]")
-        back_page_index += 1
+        try:
+            back_button.config(state="normal")
+        except:
+            pass
         back_page.append(newwebsite)
+        back_page_index = len(back_page) - 1
+        print(f"Adding {newwebsite} to the back_page[{back_page_index}]")
     print(back_page)
-
 def update_progress(value, maxvalue):
     try:
         progress_bar["value"] = value
@@ -34,17 +44,20 @@ def update_progress(value, maxvalue):
         print("Could not update progress_bar")
 
 def add_website_content(redirect = False, redirect_link = ""):
-    global old_website, old_text, entry_xl,items_amount_old,website_content_listbox, columns
+    global old_website, old_text, entry_xl,items_amount_old,website_content_listbox, columns,website
     entry_xl_new = []
     stop_flag = stop_checkbox_var.get()
     if stop_flag:
         stop_flag = stop_at
-        
+
     if redirect == False:
-        website = website_entry.get()
-        if len(website) < 1:
-            website = old_website
-            print("Warning - A new website link wasn't provided, using the old_website")
+        if website == "":
+            print("Got an empty link, returning..")
+            return
+        else:
+            if not website:
+                print("Didn't get any links, using old_website")
+                website = old_website
     else:
         website = redirect_link
     print(f"Trying {website}")
@@ -73,7 +86,7 @@ def add_website_content(redirect = False, redirect_link = ""):
                     return
                 else:
                     entry_xl = entry_xl_new
-                print("Data check successful, trying to open list_window")
+                print("Data check successful, trying to refresh_xl_window()")
                 website_content_listbox.insert(tk.END, entry)
                 refresh_xl_window()
                 refresh_listbox_focus()
@@ -130,16 +143,17 @@ def refresh_xl_window():
         return
 
     except Exception as e:
-        print("The window wasn't openned yet or an error occured, destroying list_window")
+        print("An error occured, trying to destroy list_window")
         print(e)
     try:
         list_window.destroy()
     except:
         print("The window wasn't openned yet")
+    print("Creating new window with on_xl_window()")
     on_xl_window()
 
 def on_xl_window():
-    global list_window, columns, progress_bar,list_window,xl_listbox,website_entry,frame_centre, xl_scrollbar,handle_selection
+    global list_window, columns, progress_bar,list_window,xl_listbox,website_entry,frame_centre,back_button, xl_scrollbar,handle_selection
 
     list_window = tk.Toplevel(root)
     list_window.title(f"Items listing (currently displaying {items_amount_old} items)")
@@ -162,13 +176,17 @@ def on_xl_window():
     if len(columns) < 1:
         columns = ("Item", "Seller", "Price", "Currency")  # Fallback option
 
-    website_entry = tk.Entry(frame_top)
-    website_entry.grid(row=0, column=0)
+    website_entry = tk.Entry(frame_top,width=100)
+    website_entry.pack(side="left")
+
     website_entry.insert(0, old_website)
     website_entry.configure(state="readonly")
 
-    back_button = tk.Button(frame_top, text="Return", command=on_back_page)
-    back_button.grid(row=0, column=1)
+    back_button = tk.Button(frame_top, text="Return↵", command=on_back_page)
+    back_button.pack(side="left")
+
+    stop_scan_button = tk.Button(frame_top, text="Stop scan", command=on_back_page)
+    stop_scan_button.pack(side="left")
 
     # Create and configure xl_listbox within frame_centre
     xl_listbox = tk.ttk.Treeview(frame_centre, columns=columns, show="headings")
@@ -254,7 +272,16 @@ def update_stop_at(*args):
         print(f"Updated stop_at value ({stop_at})")
     except:
         pass  # Ignore non-integer values
+def update_website_label(*args):
+    try:
+        new_website = str(website_entry_var.get())
+        global website
+        website = new_website
+        print(f"Updated website value ({website})")
+    except:
+        pass
 
+website = ""
 entry_xl = []
 old_website = ""
 old_text = ""
@@ -298,8 +325,12 @@ root_frame_bottom.grid(row=2, column=0, sticky="nsew")
 website_label = tk.Label(root_frame_top, text="Enter a website:")
 website_label.pack(side="left",padx=5,pady=5)
 
-website_entry = tk.Entry(root_frame_top)
+website_entry_var = tk.StringVar()
+
+website_entry = tk.Entry(root_frame_top,textvariable=website_entry_var)
 website_entry.pack(side="left")
+
+website_entry_var.trace("w", update_website_label)
 
 fill_button = tk.Button(root_frame_top, text="hinta", command=fill_website_entry)
 fill_button.pack(side="left",padx=5)
@@ -328,8 +359,7 @@ stop_entry_var.set(stop_at)
 
 stop_entry_var.trace("w", update_stop_at)
 
-
-stop_entry = tk.Entry(root_frame_centre,textvariable=stop_entry_var)
+stop_entry = tk.Entry(root_frame_centre,textvariable=stop_entry_var,width=4)
 stop_entry.pack(side="left")
 
 stop_entry.config(state="disabled")
