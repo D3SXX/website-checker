@@ -28,7 +28,7 @@ def hinta_process_website_content(website,content,items_amount_old, website_cont
     if "hinta.fi/g" in website:
         print("Scanning category list (/g)")
 
-        entry_xl.append(("↵ Return to the previous page","","","https://hinta.fi"))
+        #entry_xl.append(("↵ Return to the previous page","","","https://hinta.fi"))
 
         total_items_element = soup.find('span', class_='hv-text-strong')
         if total_items_element:
@@ -44,10 +44,16 @@ def hinta_process_website_content(website,content,items_amount_old, website_cont
         while True:
             try:
                 skipped_items = 0
-                if items_amount == total_items or page_number == stop_flag+1:
-                    print(f"Exiting job ({items_amount} == {total_items})")
+                if items_amount == total_items:
+                    print(f"Exiting job in total_amount({items_amount} == {total_items})")
                     items_amount = actual_items_amount
                     break
+                if stop_flag:
+                    if page_number == stop_flag+1:
+                        print(f"Exiting job on stop_flag({page_number} == {stop_flag+1})")
+                        progress_callback(total_items,total_items)
+                        items_amount = actual_items_amount
+                        break                   
                 print(f"Trying to get page {page_number}: {website}?l=1&p={page_number}",end=" ")
                 response = requests.get(f"{website}?l=1&p={page_number}", timeout=5)
                 print(f"Got response {response.status_code}")
@@ -74,7 +80,10 @@ def hinta_process_website_content(website,content,items_amount_old, website_cont
                             entry_xl.append((product_name, price, currency, f"https://hinta.fi{category_link}"))
                             actual_items_amount += 1
                         items_amount += 1
-                        progress_callback(items_amount,total_items)
+                        if stop_flag:
+                            progress_callback(page_number,stop_flag)
+                        else:
+                            progress_callback(items_amount,total_items)
                     if skipped_items != 0:
                         print(f"Just skipped {skipped_items} items")
                     print(f"Progress - > {items_amount}(actual {actual_items_amount}) out of {total_items}")
@@ -95,15 +104,18 @@ def hinta_process_website_content(website,content,items_amount_old, website_cont
         progress_callback(0,1)
 
         #entry_xl.append(("↵ Return to the previous page","","","",back_page[back_page_index-2]))
-
+        #print(script_tags)
         for script in script_tags:
             try:
-
                 product_data = json.loads(script.string)
                 if "@type" in product_data and product_data["@type"] == "Product":
                     product_name = product_data["name"] if "name" in product_data else "Unknown Product"
-                    offers = product_data.get("offers", {}).get("offers", [])
-
+                    
+                    if "offers" in product_data:
+                        if "@type" in product_data["offers"] and product_data["offers"]["@type"] == "AggregateOffer":
+                            offers = product_data["offers"].get("offers", [])
+                        else:
+                            offers = [product_data["offers"]]
                     for offer in offers:
                         offer_name = offer.get("name", "Unknown Offer")
                         price = offer.get("price", "Unknown Price")
@@ -113,8 +125,8 @@ def hinta_process_website_content(website,content,items_amount_old, website_cont
                         entry = f"Item: {product_name} Offer: {offer_name} Price: {price} {currency} Seller: {seller_name}"
                         entry_xl.append((offer_name, seller_name , price, currency))
                         items_amount += 1
-
-            except json.JSONDecodeError:
+            except json.JSONDecodeError as e:
+                print("JSON Decode Error:", e)
                 pass  # Skip this script if it's not valid JSON
         current_time = datetime.datetime.now().strftime("%H:%M:%S")
         entry = f"{current_time} - The site's listings were updated (from {items_amount_old} to {items_amount})..."
@@ -137,7 +149,7 @@ def hinta_process_website_content(website,content,items_amount_old, website_cont
                 continue
             
             # Replace spaces with an underscore
-            category_name_fixed = "_".join(category_name.split())
+            category_name_fixed = " ".join(category_name.split())
             
             entry_xl.append((category_name_fixed, "https://hinta.fi" + category_link))
             items_amount += 1
