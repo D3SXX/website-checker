@@ -1,9 +1,10 @@
-# Website checker v0.1 alpha build 9 by D3SXX  
+# Website checker v0.1 alpha build 10 by D3SXX  
 
 import tkinter as tk
 from tkinter import ttk 
 import requests
 import website_processing
+
 
 def fill_website_entry():
     root.after(0, lambda: website_entry_var.set("https://hinta.fi/"))
@@ -35,6 +36,7 @@ def on_back_page(newwebsite = None):
         back_page_index = len(back_page) - 1
         print(f"Adding {newwebsite} to the back_page[{back_page_index}]")
     print(back_page)
+
 def update_progress(value, maxvalue):
     try:
         progress_bar["value"] = value
@@ -43,8 +45,35 @@ def update_progress(value, maxvalue):
     except:
         print("Could not update progress_bar")
 
+def escape_pressed(event):
+    print("escape_pressed() triggered, returning..")
+    global esc_pressed 
+    esc_pressed = True
+
+def stop_scan():
+    global esc_pressed,stop_scan_button
+    esc_pressed = False
+    list_window.bind("<Escape>", escape_pressed)
+    list_window.title(f"Items listing (press escape to stop)")
+    stop_scan_button = tk.Button(frame_top, text="Stop scan", command=lambda: escape_pressed(""))
+    stop_scan_button.pack(side="left")
+    list_window.update_idletasks()
+    list_window.update()
+    if esc_pressed:
+        try:
+            stop_scan_button.destroy()
+        except:
+            pass
+        return True
+    else:
+        try:
+            stop_scan_button.destroy()
+        except:
+            pass
+        return False
+
 def add_website_content(redirect = False, redirect_link = ""):
-    global old_website, old_text, entry_xl,items_amount_old,website_content_listbox, columns,website
+    global old_website, old_text, entry_xl,items_amount_old,website_content_listbox, columns,website,stop_scan_button
     entry_xl_new = []
     stop_flag = stop_checkbox_var.get()
     if stop_flag:
@@ -75,7 +104,7 @@ def add_website_content(redirect = False, redirect_link = ""):
                     print(f"Page size was changed, proceeding (new {len(response.text)} != past {len(old_text)})")
                     old_text = response.text 
                 try:
-                    entry, entry_xl_new, items_amount_old, columns = website_processing.process_website_content(website,response.text,items_amount_old,website_content_listbox,update_progress,on_back_page,stop_flag,redirect)
+                    entry, entry_xl_new, items_amount_old, columns = website_processing.process_website_content(website,response.text,items_amount_old,website_content_listbox,update_progress,on_back_page,stop_scan,stop_flag,redirect)
                 except Exception as e:
                     print("Warning - Page could not be identified (or an error occurred), returning..")
                     print("",type(e).__name__, "–", e)
@@ -90,7 +119,6 @@ def add_website_content(redirect = False, redirect_link = ""):
                 website_content_listbox.insert(tk.END, entry)
                 refresh_xl_window()
                 refresh_listbox_focus()
-                xl_button.config(state=tk.NORMAL)
             else:
                 print("Error - Failed to fetch content")
                 xl_button.config(state=tk.DISABLED)
@@ -137,7 +165,6 @@ def refresh_xl_window():
         website_entry.configure(state="readonly")
         print("Refreshing window title")
         list_window.title(f"Items listing (currently displaying {items_amount_old} items)")
-
         list_window.update_idletasks()
         list_window.update()
         return
@@ -153,7 +180,7 @@ def refresh_xl_window():
     on_xl_window()
 
 def on_xl_window():
-    global list_window, columns, progress_bar,list_window,xl_listbox,website_entry,frame_centre,back_button, xl_scrollbar,handle_selection
+    global list_window, columns, progress_bar,list_window,xl_listbox,website_entry,frame_top,frame_centre,back_button, xl_scrollbar,handle_selection
 
     list_window = tk.Toplevel(root)
     list_window.title(f"Items listing (currently displaying {items_amount_old} items)")
@@ -184,9 +211,6 @@ def on_xl_window():
 
     back_button = tk.Button(frame_top, text="Return↵", command=on_back_page)
     back_button.pack(side="left")
-
-    stop_scan_button = tk.Button(frame_top, text="Stop scan", command=on_back_page)
-    stop_scan_button.pack(side="left")
 
     # Create and configure xl_listbox within frame_centre
     xl_listbox = tk.ttk.Treeview(frame_centre, columns=columns, show="headings")
@@ -221,8 +245,7 @@ def on_xl_window():
             except:
                 return
             print(f"Trying to redirect to {old_website}")
-            # Call the function you want to execute with the selected item's values
-            add_website_content(True, old_website)
+            list_window.after(0,add_website_content(True, old_website))
             on_back_page(old_website)
 
     # Bind the function to mouse left-click and Enter key press events
