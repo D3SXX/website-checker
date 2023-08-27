@@ -5,18 +5,18 @@ import re
 import requests
 
 
-
-def process_website_content(website,content,items_amount_old, website_content_listbox,progress_callback,edit_back_page,stop_flag,redirect):
+def process_website_content(website,content,items_amount_old, website_content_listbox,progress_callback,edit_back_page,stop_scan,stop_flag,redirect):
     global back_page_index,back_page
     print("Identifying the website")
         
     if "hinta.fi" in website:
         print("Hinta.fi identified")
-        entry, entry_xl, items_amount_old, columns = hinta_process_website_content(website,content,items_amount_old, website_content_listbox,progress_callback,stop_flag)
+        entry, entry_xl, items_amount_old, columns = hinta_process_website_content(website,content,items_amount_old, website_content_listbox,progress_callback,stop_flag,stop_scan)
     if redirect == False:
         edit_back_page(website)
     return entry, entry_xl, items_amount_old, columns
-def hinta_process_website_content(website,content,items_amount_old, website_content_listbox,progress_callback,stop_flag):
+
+def hinta_process_website_content(website,content,items_amount_old, website_content_listbox,progress_callback,stop_flag,stop_scan):
 
     #global back_page,back_page_index
 
@@ -40,9 +40,13 @@ def hinta_process_website_content(website,content,items_amount_old, website_cont
         items_amount = 0
         actual_items_amount = 0
         page_number = 1
+        scan = True
 
-        while True:
+        while scan:
             try:
+
+                if stop_scan():
+                    scan = 0
                 skipped_items = 0
                 if items_amount == total_items:
                     print(f"Exiting job in total_amount({items_amount} == {total_items})")
@@ -71,8 +75,6 @@ def hinta_process_website_content(website,content,items_amount_old, website_cont
 
                         currency = price[-1] if not price[-1].isdigit() else "Unknown Currency"
                         price = price.replace(',', '.').replace(' ', '')[:-1] if currency != "Unknown Currency" else price
-
-                        
 
                         if (f"'https://hinta.fi{category_link}'") in str(entry_xl):
                             skipped_items += 1
