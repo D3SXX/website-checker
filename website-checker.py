@@ -1,16 +1,32 @@
-# Website checker v0.1 alpha build 10 by D3SXX  
+# Website checker v0.1 alpha build 11 by D3SXX  
 
 import tkinter as tk
 from tkinter import ttk 
 import requests
 import website_processing
 
+class DataHolder:
+    list_count = 0
+    
+    def __init__(self):
+        self.data_lists = {}
+    
+    def add_data(self, item):
+        list_name = f"list_{DataHolder.list_count}"
+        DataHolder.list_count += 1
+        self.data_lists[list_name] = item
+    
+    def get_data(self, list_name):
+        if list_name in self.data_lists:
+            return self.data_lists[list_name]
+        else:
+            return None
 
 def fill_website_entry():
     root.after(0, lambda: website_entry_var.set("https://hinta.fi/"))
 
 def on_back_page(newwebsite = None):
-    global back_page_index,back_page,back_button
+    global back_page_index,back_page,back_button, entry_xl, data_holder, columns,data_holder_index
     if newwebsite == None:
         if back_page_index < 0:
             on_back_page("clear")
@@ -22,7 +38,21 @@ def on_back_page(newwebsite = None):
         print(f"Removing {back_page[back_page_index]} from the back_page[{back_page_index}]")
         back_page.pop(back_page_index)
         back_page_index -= 1
-        add_website_content(True,back_page[back_page_index])
+        print(f"Trying to access data from the Dataholder [{data_holder_index-4}] and [{data_holder_index-3}]")
+        try:
+            columns = data_holder.get_data(f"list_{data_holder_index-4}")
+            entry_xl = data_holder.get_data(f"list_{data_holder_index-3}")
+        except:
+            print("Error happened while trying to access data")
+            add_website_content(True,back_page[back_page_index], False)
+            return
+        data_holder_index -= 2
+        if columns and entry_xl:
+            print("Got data")
+            refresh_xl_window()
+        else:
+            print("Could not retrieve data, redirecting to add_website_content")
+            add_website_content(True,back_page[back_page_index], False)
     elif newwebsite == "clear":
         back_page_index = 0
         back_page.clear()
@@ -72,8 +102,8 @@ def stop_scan():
             pass
         return False
 
-def add_website_content(redirect = False, redirect_link = ""):
-    global old_website, old_text, entry_xl,items_amount_old,website_content_listbox, columns,website,stop_scan_button
+def add_website_content(redirect = False, redirect_link = "",hold_data = True):
+    global old_website, old_text, entry_xl,items_amount_old,website_content_listbox, columns,website,stop_scan_button,data_holder_index
     entry_xl_new = []
     stop_flag = stop_checkbox_var.get()
     if stop_flag:
@@ -115,6 +145,12 @@ def add_website_content(redirect = False, redirect_link = ""):
                     return
                 else:
                     entry_xl = entry_xl_new
+                    xl_button.config(state=tk.NORMAL)
+                    if hold_data:
+                        data_holder_index += 2
+                        print(f"Recorded data to the Dataholder [{data_holder_index-2}] and [{data_holder_index-1}]")
+                        data_holder.add_data(columns)
+                        data_holder.add_data(entry_xl)
                 print("Data check successful, trying to refresh_xl_window()")
                 website_content_listbox.insert(tk.END, entry)
                 refresh_xl_window()
@@ -311,6 +347,8 @@ old_text = ""
 items_amount_old = 0
 columns = ""
 stop_at = 10
+data_holder = DataHolder()
+data_holder_index = 0
 
 back_page = []
 back_page_index = 0
