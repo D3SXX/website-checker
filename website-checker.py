@@ -1,9 +1,20 @@
-# Website checker v0.1 alpha build 12 by D3SXX  
+# Website checker v0.1 alpha build 13 by D3SXX  
 
 import tkinter as tk
 from tkinter import ttk 
 import requests
 import website_processing
+import argparse
+import datetime
+
+parser = argparse.ArgumentParser(description="Website Checker by D3SXX")
+
+parser.add_argument('--Debug',action='store_true',help='Enable debug output')
+parser.add_argument('--Warning',action='store_true',help='Enable output of warnings and errors')
+
+args = parser.parse_args()
+
+#args.Debug = True
 
 class DataHolder:
     list_count = 0
@@ -39,55 +50,98 @@ class DataHolder:
             return link
         except:
             return None
+    def reset_data(self):
+        self.data_lists.clear()
+        self.link_lists.clear()
+        DataHolder.list_count = 0
+        DataHolder.ink_count = 0
+
+class DebugPrint:
+
+    def __init__(self):
+        pass
+    
+    def d_print(self,item,ending="\n", timestamp = None):
+         if args.Debug:
+            current_time = datetime.datetime.now().strftime("%H:%M:%S")
+            if ending == "\n":
+                if timestamp == None or timestamp == True:
+                    print(f"{current_time} - {str(item)}")
+                else:
+                    print(f"{str(item)}")
+            else:
+                if timestamp:
+                    print(f"{current_time} - ",end="")
+                print(f"{str(item)}",end=ending)
+    def warning_print(self,item,type = "W",timestamp = True):
+        if args.Debug or args.Warning:
+            current_time = datetime.datetime.now().strftime("%H:%M:%S")
+            if type == "W":
+                if timestamp or args.Warning:
+                    print("\033[93m{}\033[00m".format(f"{current_time} - (Warning) {str(item)}"))
+                else:
+                    print("\033[93m{}\033[00m".format(f"(Warning) {str(item)}"))
+            else:
+                if timestamp or args.Warning:
+                    print("\033[91m{}\033[00m".format(f"{current_time} - (Error) {str(item)}"))
+                else:
+                    print("\033[91m{}\033[00m".format(f"(Error) {str(item)}"))
 
 def fill_website_entry():
     root.after(0, lambda: website_entry_var.set("https://hinta.fi/"))
 
 def on_back_page(newwebsite = None):
-    global back_button, entry_xl, data_holder, columns, old_website
+    global back_button, entry_xl, data_holder, columns, old_website, debug
     if newwebsite == None:
-        print("Trying to get the link from DataHolder-->",end="")
+        debug.d_print("Trying to get the link from DataHolder-->","",True)
         try:
             link = data_holder.get_link()
             old_website = link
-            print(link)
+            debug.d_print(link,"\n",False)
             if link == None:
-                back_button.config(state="disabled")
+                raise Exception
         except:
-            print("Error hapenned while trying to get link")
-        print(f"Trying to access data from the Dataholder-->",end="")
+            debug.warning_print("Error hapenned while trying to get link, doing reset_data()","E")
+            data_holder.reset_data()
+            back_button.config(state="disabled")
+            return
+        debug.d_print(f"Trying to access data from the Dataholder-->","",True)
         update_progress(0,1)
         try:
             columns,entry_xl = data_holder.get_data()
+            global items_amount_old
+            items_amount_old = len(entry_xl)
         except:
-            print("Error happened while trying to access data")
+            debug.warning_print("Could not access data from Dataholder","E",False)
             add_website_content(True,link, False)
             return
         if columns != None:
-            print("Got correct data")
+            debug.d_print("Got correct data","\n",False)
             update_progress(1,1)
             refresh_xl_window()
         else:
-            print("Could not retrieve data, redirecting to add_website_content")
+            debug.warning_print("Could not retrieve data, redirecting to add_website_content","E",False)
             add_website_content(True,link, False)
     else:
         try:
             back_button.config(state="normal")
         except:
             pass
-        print(f"Adding {newwebsite} to DataHolder")
+        debug.d_print(f"Adding {newwebsite} to DataHolder")
         data_holder.add_link(newwebsite)
 
 def update_progress(value, maxvalue):
     try:
         progress_bar["value"] = value
         progress_bar["maximum"] = maxvalue
+        percentage = (value / maxvalue) * 100
+        list_window.title(f"Items listing - {value}/{maxvalue}({percentage:.2f}%) (press escape to stop)")
         list_window.update_idletasks()
     except:
-        print("Could not update progress_bar")
+        debug.warning_print("Could not update progress_bar","W")
 
 def escape_pressed(event):
-    print("escape_pressed() triggered, returning..")
+    debug.d_print("escape_pressed() triggered, returning..")
     global esc_pressed 
     esc_pressed = True
 
@@ -95,7 +149,6 @@ def stop_scan():
     global esc_pressed,stop_scan_button
     esc_pressed = False
     list_window.bind("<Escape>", escape_pressed)
-    list_window.title(f"Items listing (press escape to stop)")
     stop_scan_button = tk.Button(frame_top, text="Stop scan", command=lambda: escape_pressed(""))
     stop_scan_button.pack(side="left")
     list_window.update_idletasks()
@@ -122,55 +175,54 @@ def add_website_content(redirect = False, redirect_link = "",hold_data = True):
 
     if redirect == False:
         if website == "":
-            print("Got an empty link, returning..")
+            debug.warning_print("Got an empty link, returning..","E")
             return
         else:
             if not website:
-                print("Didn't get any links, using old_website")
+                debug.d_print("Didn't get any links, using old_website","W")
                 website = old_website
     else:
         website = redirect_link
-    print(f"Trying {website}")
+    debug.d_print(f"Trying {website}")
     if website:
         old_website = website
         try:
             response = requests.get(website,timeout=5)
-            print(f"Got response {response.status_code}")
+            debug.d_print(f"Got response {response.status_code}")
             if response.status_code == 200:
-                print("Checking if the page haven't changed")
+                debug.d_print("Checking if the page haven't changed")
                 if response.text == old_text:
-                    print("Warning - The data is the same from the last time, returning..")
+                    debug.warning_print("The data is the same from the last time, returning..", "W")
                     return
                 else:
-                    print(f"Page size was changed, proceeding (new {len(response.text)} != past {len(old_text)})")
+                    debug.d_print(f"Page size was changed, proceeding (new {len(response.text)} != past {len(old_text)})")
                     old_text = response.text 
                 try:
-                    entry, entry_xl_new, items_amount_old, columns = website_processing.process_website_content(website,response.text,items_amount_old,website_content_listbox,update_progress,on_back_page,stop_scan,stop_flag,redirect)
+                    entry, entry_xl_new, items_amount_old, columns = website_processing.process_website_content(website,response.text,items_amount_old,website_content_listbox,update_progress,on_back_page,stop_scan,debug,stop_flag,redirect)
                 except Exception as e:
-                    print("Warning - Page could not be identified (or an error occurred), returning..")
-                    print("",type(e).__name__, "–", e)
-                    #print(e)
+                    debug.warning_print("Page could not be identified (or an error occurred), returning..","W")
+                    debug.warning_print(f"{e}","E")
                     return
                 if entry_xl == entry_xl_new:
-                    print(f"Warning - Got the same data (new {len(entry_xl_new)} == past {len(entry_xl)}), returning..")
+                    debug.warning_print(f"Got the same data (new {len(entry_xl_new)} == past {len(entry_xl)}), returning..","W")
                     return
                 else:
                     entry_xl = entry_xl_new
                     xl_button.config(state=tk.NORMAL)
                     if hold_data:
-                        print(f"Recorded data to the Dataholder")
+                        debug.d_print(f"Recorded data to the Dataholder")
                         data_holder.add_data(columns)
                         data_holder.add_data(entry_xl)
-                print("Data check successful, trying to refresh_xl_window()")
+                debug.d_print("Data check successful, trying to refresh_xl_window()")
                 website_content_listbox.insert(tk.END, entry)
                 refresh_xl_window()
                 refresh_listbox_focus()
             else:
-                print("Error - Failed to fetch content")
+                debug.warning_print("Failed to fetch content","E")
                 xl_button.config(state=tk.DISABLED)
                 website_content_listbox.insert(tk.END, f"Failed to fetch content from {website}")
         except requests.RequestException:
-            print("Error - Failed to fetch content after 5 seconds of trying")
+            debug.warning_print("Failed to fetch content after 5 seconds of trying","E")
             website_content_listbox.insert(tk.END, f"Failed to fetch content from {website}")
         website_entry.delete(0, tk.END)
 
@@ -185,13 +237,13 @@ def save_list():
 
 def refresh_xl_window():
     global xl_listbox,xl_scrollbar
-    print("Trying to refresh list_window")
+    debug.d_print("Trying to refresh list_window","-->",True)
     try:
-        print("Destroying xl_listbox",end="-->")
+        debug.d_print("Destroying xl_listbox","-->")
         xl_listbox.destroy()
-        print("Creating xl_listbox",end="-->")
+        debug.d_print("Creating xl_listbox","-->")
         xl_listbox = tk.ttk.Treeview(frame_centre, columns=columns, show="headings")
-        print("Filling xl_window",end="-->")
+        debug.d_print("Filling xl_window","-->")
         for col_index, col in enumerate(columns):
             xl_listbox.heading(col, text=col, command=lambda col_index=col_index: sort_column_xl(xl_listbox, col_index))
         for value in entry_xl:
@@ -199,30 +251,30 @@ def refresh_xl_window():
         xl_listbox.pack(fill="both", expand=True,side="left")
         xl_listbox.bind("<ButtonRelease-1>", handle_selection)  # Mouse left-click
         xl_listbox.bind("<Return>", handle_selection)           # Enter key
-        print("Refreshing xl_scrollbar",end="-->")
+        debug.d_print("Refreshing xl_scrollbar","-->")
         xl_scrollbar.destroy()
         xl_scrollbar = tk.Scrollbar(frame_centre, orient="vertical", command=xl_listbox.yview)
         xl_listbox.configure(yscrollcommand=xl_scrollbar.set)
         xl_scrollbar.pack(fill="y", side="right")
-        print("Refreshing website_entry",end="-->")
+        debug.d_print("Refreshing website_entry","-->")
         website_entry.configure(state="normal")
         website_entry.delete(0, tk.END)
         website_entry.insert(0, old_website)
         website_entry.configure(state="readonly")
-        print("Refreshing window title")
+        debug.d_print("Refreshing window title","\n",False)
         list_window.title(f"Items listing (currently displaying {items_amount_old} items)")
         list_window.update_idletasks()
         list_window.update()
         return
 
     except Exception as e:
-        print("An error occured, trying to destroy list_window")
-        print(e)
+        debug.warning_print("An error occured, trying to destroy list_window","W",False)
+        debug.warning_print(f"{e}","E")
     try:
         list_window.destroy()
     except:
-        print("The window wasn't openned yet")
-    print("Creating new window with on_xl_window()")
+        debug.d_print("The window wasn't openned yet")
+    debug.d_print("Creating new window with on_xl_window()")
     on_xl_window()
 
 def on_xl_window():
@@ -290,7 +342,7 @@ def on_xl_window():
                 old_website = item_values[link_place]
             except:
                 return
-            print(f"Trying to redirect to {old_website}")
+            debug.d_print(f"Trying to redirect to {old_website}")
             list_window.after(0,add_website_content(True, old_website))
             on_back_page(old_website)
 
@@ -315,7 +367,7 @@ def sort_column_xl(xl_listbox, col_index, descending=False):
 
 def on_checkbox_clicked():
     var = update_checkbox_var.get()
-    print(f"Auto update is set to {bool(var)}")
+    debug.d_print(f"Auto update is set to {bool(var)}")
     if var:
         add_website_content()
         time_delay = 5 * 60 * 1000 # 5 minutes in ms
@@ -324,7 +376,7 @@ def on_checkbox_clicked():
 
 def on_checkbox_stop_skip():
     var = stop_checkbox_var.get()
-    print(f"Stop page is set to {bool(var)}")
+    debug.d_print(f"Stop page is set to {bool(var)}")
     if var:
         stop_entry.config(state="normal")
     else:
@@ -338,7 +390,7 @@ def update_stop_at(*args):
         new_stop_at = int(stop_entry_var.get())
         global stop_at
         stop_at = new_stop_at
-        print(f"Updated stop_at value ({stop_at})")
+        debug.d_print(f"Updated stop_at value ({stop_at})")
     except:
         pass  # Ignore non-integer values
 def update_website_label(*args):
@@ -346,7 +398,7 @@ def update_website_label(*args):
         new_website = str(website_entry_var.get())
         global website
         website = new_website
-        print(f"Updated website value ({website})")
+        debug.d_print(f"Updated website value ({website})")
     except:
         pass
 
@@ -358,6 +410,7 @@ items_amount_old = 0
 columns = ""
 stop_at = 10
 data_holder = DataHolder()
+debug = DebugPrint()
 
 root = tk.Tk()
 root.title("Website Product List")
