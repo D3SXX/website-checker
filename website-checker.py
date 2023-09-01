@@ -1,4 +1,4 @@
-# Website checker v0.1 alpha build 13 by D3SXX  
+# Website checker v0.1 alpha build 14 by D3SXX  
 
 import tkinter as tk
 from tkinter import ttk 
@@ -54,7 +54,7 @@ class DataHolder:
         self.data_lists.clear()
         self.link_lists.clear()
         DataHolder.list_count = 0
-        DataHolder.ink_count = 0
+        DataHolder.link_count = 0
 
 class DebugPrint:
 
@@ -287,6 +287,7 @@ def on_xl_window():
     list_window.geometry(f"{window_width}x{window_height}")
     list_window.minsize(width=window_width, height=window_height)
 
+    list_window.grid_rowconfigure(0, weight=0)
     list_window.grid_rowconfigure(1, weight=1)
     list_window.grid_columnconfigure(0, weight=1)
 
@@ -302,13 +303,13 @@ def on_xl_window():
         columns = ("Item", "Seller", "Price", "Currency")  # Fallback option
 
     website_entry = tk.Entry(frame_top,width=100)
-    website_entry.pack(side="left")
+    website_entry.pack(side="left",fill="both")
 
     website_entry.insert(0, old_website)
     website_entry.configure(state="readonly")
 
     back_button = tk.Button(frame_top, text="Return↵", command=on_back_page)
-    back_button.pack(side="left")
+    back_button.pack(side="left",expand=True)
 
     # Create and configure xl_listbox within frame_centre
     xl_listbox = tk.ttk.Treeview(frame_centre, columns=columns, show="headings")
@@ -418,7 +419,7 @@ window_width = 350
 window_height = 250
 root.geometry(f"{window_width}x{window_height}")
 root.minsize(width=window_width, height=window_height)
-root.maxsize(width=window_width, height=window_height)
+#root.maxsize(width=window_width, height=window_height)
 
 root_width = root.winfo_width()
 root_height = root.winfo_height()
@@ -430,7 +431,9 @@ def resize(event):
 
 root.bind("<Configure>", resize)
 
-root.grid_rowconfigure(1, weight=1)
+root.grid_rowconfigure(0, weight=0)
+root.grid_rowconfigure(1, weight=0)
+root.grid_rowconfigure(2, weight=1)
 root.grid_columnconfigure(0, weight=1)
 
 root_frame_top = tk.Frame(master=root)
@@ -441,57 +444,51 @@ root_frame_top.grid(row=0, column=0, sticky="nsew")
 root_frame_centre.grid(row=1, column=0, sticky="nsew")
 root_frame_bottom.grid(row=2, column=0, sticky="nsew")
 
-
 website_label = tk.Label(root_frame_top, text="Enter a website:")
 website_label.pack(side="left",padx=5,pady=5)
 
 website_entry_var = tk.StringVar()
 
 website_entry = tk.Entry(root_frame_top,textvariable=website_entry_var)
-website_entry.pack(side="left")
+website_entry.pack(side="left", expand=True, fill="both",padx=5,pady=5)
 
 website_entry_var.trace("w", update_website_label)
 
 fill_button = tk.Button(root_frame_top, text="hinta", command=fill_website_entry)
-fill_button.pack(side="left",padx=5)
+fill_button.pack(side="left",padx=5,pady=2, expand=True, fill="both")
 
 add_button = tk.Button(root_frame_top, text="Analyze", command=add_website_content)
-add_button.pack(side="left")
+add_button.pack(side="left",padx=5,pady=2, expand=True, fill="both")
 
 xl_button = tk.Button(root_frame_centre, text="Open xl window", command=on_xl_window)
-xl_button.pack(side="left",padx=5)
+xl_button.pack(side="left", padx=5,pady=2, expand=True, fill="both")
 if not entry_xl:
     xl_button.config(state=tk.DISABLED)
 
 update_checkbox_var = tk.IntVar()
 
 checkbox = tk.Checkbutton(root_frame_centre, text="Auto Update", variable=update_checkbox_var, command=on_checkbox_clicked)
-checkbox.pack(side="left")
+checkbox.pack(side="left", expand=True, fill="both")
 
 stop_checkbox_var = tk.IntVar()
 
 checkbox = tk.Checkbutton(root_frame_centre, text="Stop scan after", variable=stop_checkbox_var, command=on_checkbox_stop_skip)
-
-checkbox.pack(side="left")
+checkbox.pack(side="left", expand=True, fill="both")
 
 stop_entry_var = tk.IntVar()
 stop_entry_var.set(stop_at)
 
 stop_entry_var.trace("w", update_stop_at)
 
-stop_entry = tk.Entry(root_frame_centre,textvariable=stop_entry_var,width=4)
-stop_entry.pack(side="left")
+stop_entry = tk.Entry(root_frame_centre, textvariable=stop_entry_var, width=4)
+stop_entry.pack(side="left", expand=True, fill="both",padx=5,pady=2)
 
 stop_entry.config(state="disabled")
 
-# Create a Frame to hold the listbox
-listbox_frame = tk.Frame(root_frame_bottom)
-listbox_frame.pack(fill="both",padx=5)
-
-website_content_listbox = tk.Listbox(listbox_frame)
+website_content_listbox = tk.Listbox(root_frame_bottom)
 website_content_listbox.pack(fill="both", expand=True,side="left")
 
-scrollbar = tk.Scrollbar(listbox_frame, orient=tk.VERTICAL, command=website_content_listbox.yview)
+scrollbar = tk.Scrollbar(root_frame_bottom, orient=tk.VERTICAL, command=website_content_listbox.yview)
 scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 website_content_listbox.config(yscrollcommand=scrollbar.set)
 
