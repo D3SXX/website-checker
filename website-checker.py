@@ -1,4 +1,4 @@
-# Website checker v0.1 alpha build 14 by D3SXX  
+# Website checker v0.1 alpha build 15 by D3SXX  
 
 import tkinter as tk
 from tkinter import ttk 
@@ -118,7 +118,7 @@ def on_back_page(newwebsite = None):
         if columns != None:
             debug.d_print("Got correct data","\n",False)
             update_progress(1,1)
-            refresh_xl_window()
+            init_browser_window()
         else:
             debug.warning_print("Could not retrieve data, redirecting to add_website_content","E",False)
             add_website_content(True,link, False)
@@ -215,7 +215,7 @@ def add_website_content(redirect = False, redirect_link = "",hold_data = True):
                         data_holder.add_data(entry_xl)
                 debug.d_print("Data check successful, trying to refresh_xl_window()")
                 website_content_listbox.insert(tk.END, entry)
-                refresh_xl_window()
+                init_browser_window()
                 refresh_listbox_focus()
             else:
                 debug.warning_print("Failed to fetch content","E")
@@ -224,7 +224,6 @@ def add_website_content(redirect = False, redirect_link = "",hold_data = True):
         except requests.RequestException:
             debug.warning_print("Failed to fetch content after 5 seconds of trying","E")
             website_content_listbox.insert(tk.END, f"Failed to fetch content from {website}")
-        website_entry.delete(0, tk.END)
 
 def clear_list():
     website_content_listbox.delete(0, tk.END)
@@ -235,52 +234,9 @@ def save_list():
         for content in contents:
             file.write(content + '\n')
 
-def refresh_xl_window():
-    global xl_listbox,xl_scrollbar
-    debug.d_print("Trying to refresh list_window","-->",True)
-    try:
-        debug.d_print("Destroying xl_listbox","-->")
-        xl_listbox.destroy()
-        debug.d_print("Creating xl_listbox","-->")
-        xl_listbox = tk.ttk.Treeview(frame_centre, columns=columns, show="headings")
-        debug.d_print("Filling xl_window","-->")
-        for col_index, col in enumerate(columns):
-            xl_listbox.heading(col, text=col, command=lambda col_index=col_index: sort_column_xl(xl_listbox, col_index))
-        for value in entry_xl:
-            xl_listbox.insert('', tk.END, values=value)
-        xl_listbox.pack(fill="both", expand=True,side="left")
-        xl_listbox.bind("<ButtonRelease-1>", handle_selection)  # Mouse left-click
-        xl_listbox.bind("<Return>", handle_selection)           # Enter key
-        debug.d_print("Refreshing xl_scrollbar","-->")
-        xl_scrollbar.destroy()
-        xl_scrollbar = tk.Scrollbar(frame_centre, orient="vertical", command=xl_listbox.yview)
-        xl_listbox.configure(yscrollcommand=xl_scrollbar.set)
-        xl_scrollbar.pack(fill="y", side="right")
-        debug.d_print("Refreshing website_entry","-->")
-        website_entry.configure(state="normal")
-        website_entry.delete(0, tk.END)
-        website_entry.insert(0, old_website)
-        website_entry.configure(state="readonly")
-        debug.d_print("Refreshing window title","\n",False)
-        list_window.title(f"Items listing (currently displaying {items_amount_old} items)")
-        list_window.update_idletasks()
-        list_window.update()
-        return
+def on_list_window():
+    global list_window,columns, progress_bar,xl_listbox,website_entry,frame_top,frame_centre,back_button, xl_scrollbar,handle_selection
 
-    except Exception as e:
-        debug.warning_print("An error occured, trying to destroy list_window","W",False)
-        debug.warning_print(f"{e}","E")
-    try:
-        list_window.destroy()
-    except:
-        debug.d_print("The window wasn't openned yet")
-    debug.d_print("Creating new window with on_xl_window()")
-    on_xl_window()
-
-def on_xl_window():
-    global list_window, columns, progress_bar,list_window,xl_listbox,website_entry,frame_top,frame_centre,back_button, xl_scrollbar,handle_selection
-
-    list_window = tk.Toplevel(root)
     list_window.title(f"Items listing (currently displaying {items_amount_old} items)")
     window_width = 800
     window_height = 600
@@ -302,8 +258,8 @@ def on_xl_window():
     if len(columns) < 1:
         columns = ("Item", "Seller", "Price", "Currency")  # Fallback option
 
-    website_entry = tk.Entry(frame_top,width=100)
-    website_entry.pack(side="left",fill="both")
+    website_entry = tk.Entry(frame_top, width=100)
+    website_entry.pack(side="left", fill="both")
 
     website_entry.insert(0, old_website)
     website_entry.configure(state="readonly")
@@ -344,13 +300,28 @@ def on_xl_window():
             except:
                 return
             debug.d_print(f"Trying to redirect to {old_website}")
-            list_window.after(0,add_website_content(True, old_website))
+            #list_window.after(0, lambda: add_website_content(True, old_website))
+            add_website_content(True, old_website)
             on_back_page(old_website)
 
     # Bind the function to mouse left-click and Enter key press events
     xl_listbox.bind("<ButtonRelease-1>", handle_selection)  # Mouse left-click
     xl_listbox.bind("<Return>", handle_selection)           # Enter key
 
+def init_browser_window():
+    debug.d_print("init_browser_window","-->",True)
+    global list_window
+    try:
+        if list_window is None or not list_window.winfo_exists():
+            list_window = tk.Toplevel(root)
+            on_list_window()
+            debug.d_print("list_window was created", "-->")
+    except:
+        list_window = tk.Toplevel(root)
+        on_list_window()
+        debug.d_print("list_window was created","-->")
+    debug.d_print("Going to on_list_window","\n",False)
+    on_list_window()
 
 def sort_column_xl(xl_listbox, col_index, descending=False):
     global columns
@@ -460,7 +431,7 @@ fill_button.pack(side="left",padx=5,pady=2, expand=True, fill="both")
 add_button = tk.Button(root_frame_top, text="Analyze", command=add_website_content)
 add_button.pack(side="left",padx=5,pady=2, expand=True, fill="both")
 
-xl_button = tk.Button(root_frame_centre, text="Open xl window", command=on_xl_window)
+xl_button = tk.Button(root_frame_centre, text="Open xl window", command=init_browser_window)
 xl_button.pack(side="left", padx=5,pady=2, expand=True, fill="both")
 if not entry_xl:
     xl_button.config(state=tk.DISABLED)
