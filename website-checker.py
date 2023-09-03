@@ -1,4 +1,4 @@
-# Website checker v0.1 alpha build 15 by D3SXX  
+# Website checker v0.1 alpha build 16 by D3SXX  
 
 import tkinter as tk
 from tkinter import ttk 
@@ -6,6 +6,7 @@ import requests
 import website_processing
 import argparse
 import datetime
+import threading
 
 parser = argparse.ArgumentParser(description="Website Checker by D3SXX")
 
@@ -14,7 +15,7 @@ parser.add_argument('--Warning',action='store_true',help='Enable output of warni
 
 args = parser.parse_args()
 
-#args.Debug = True
+args.Debug = True
 
 class DataHolder:
     list_count = 0
@@ -45,6 +46,9 @@ class DataHolder:
         try:
             if self.link_count < 0:
                 self.link_count = 0
+            elif self.link_count == 0:
+                self.link_count = 1
+                return False 
             link = self.link_lists[DataHolder.link_count-1]
             self.link_lists.pop(DataHolder.link_count)
             return link
@@ -96,6 +100,10 @@ def on_back_page(newwebsite = None):
         debug.d_print("Trying to get the link from DataHolder-->","",True)
         try:
             link = data_holder.get_link()
+            if link == False:
+                back_button.config(state="disabled")
+                debug.d_print("Reached the first page, returning","\n",False)
+                return
             old_website = link
             debug.d_print(link,"\n",False)
             if link == None:
@@ -147,28 +155,27 @@ def escape_pressed(event):
 
 def stop_scan():
     global esc_pressed,stop_scan_button
-    esc_pressed = False
     list_window.bind("<Escape>", escape_pressed)
-    stop_scan_button = tk.Button(frame_top, text="Stop scan", command=lambda: escape_pressed(""))
-    stop_scan_button.pack(side="left")
+    try:
+        if not stop_scan_button.winfo_ismapped():
+            stop_scan_button = tk.Button(frame_top, text="Stop scan", command=lambda: escape_pressed(""))
+            stop_scan_button.pack(side="left")
+    except:
+        stop_scan_button = tk.Button(frame_top, text="Stop scan", command=lambda: escape_pressed(""))
+        stop_scan_button.pack(side="left")
     list_window.update_idletasks()
     list_window.update()
     if esc_pressed:
-        try:
-            stop_scan_button.destroy()
-        except:
-            pass
+        stop_scan_button.destroy()
         return True
     else:
-        try:
-            stop_scan_button.destroy()
-        except:
-            pass
         return False
+    
 
 def add_website_content(redirect = False, redirect_link = "",hold_data = True):
-    global old_website, old_text, entry_xl,items_amount_old,website_content_listbox, columns,website,stop_scan_button
+    global old_website, old_text, entry_xl,items_amount_old,website_content_listbox, columns,website,stop_scan_button, esc_pressed
     entry_xl_new = []
+    esc_pressed = False
     stop_flag = stop_checkbox_var.get()
     if stop_flag:
         stop_flag = stop_at
@@ -213,7 +220,7 @@ def add_website_content(redirect = False, redirect_link = "",hold_data = True):
                         debug.d_print(f"Recorded data to the Dataholder")
                         data_holder.add_data(columns)
                         data_holder.add_data(entry_xl)
-                debug.d_print("Data check successful, trying to refresh_xl_window()")
+                debug.d_print("Data check successful, trying to init_browser_window()")
                 website_content_listbox.insert(tk.END, entry)
                 init_browser_window()
                 refresh_listbox_focus()
@@ -300,8 +307,9 @@ def on_list_window():
             except:
                 return
             debug.d_print(f"Trying to redirect to {old_website}")
-            #list_window.after(0, lambda: add_website_content(True, old_website))
-            add_website_content(True, old_website)
+            thread = threading.Thread(target=add_website_content, args=(True,old_website))
+            thread.start()
+            #add_website_content(True, old_website)
             on_back_page(old_website)
 
     # Bind the function to mouse left-click and Enter key press events
