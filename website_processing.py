@@ -42,7 +42,8 @@ def hinta_process_website_content(website,content,items_amount_old, website_cont
             try:
 
                 if stop_scan():
-                    scan = 0
+                    scan = False
+                    debug.d_print("Received stop_scan, perfoming last scan")
                 skipped_items = 0
                 if items_amount == total_items:
                     debug.d_print(f"Exiting job in total_amount({items_amount} == {total_items})")
