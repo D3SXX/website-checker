@@ -12,8 +12,12 @@ def process_website_content(website,content,items_amount_old, website_content_li
     if "hinta.fi" in website:
         debug.d_print("Hinta.fi identified")
         entry, entry_xl, items_amount_old, columns = hinta_process_website_content(website,content,items_amount_old, website_content_listbox,progress_callback,stop_flag,stop_scan,debug)
+    elif "hintaopas.fi":
+        debug.d_print("Hintaopas.fi identified")
+        entry, entry_xl, items_amount_old, columns = hintaopas_process_website_content(website,content,items_amount_old, website_content_listbox,progress_callback,stop_flag,stop_scan,debug)
     if redirect == False:
         edit_back_page(website)
+    
     return entry, entry_xl, items_amount_old, columns
 
 def hinta_process_website_content(website,content,items_amount_old, website_content_listbox,progress_callback,stop_flag,stop_scan,debug):
@@ -159,4 +163,28 @@ def hinta_process_website_content(website,content,items_amount_old, website_cont
         items_amount = len(entry_xl)
         columns = ("Category", "Link")
         progress_callback(1,1)
+        return entry, entry_xl, items_amount_old, columns
+
+def hintaopas_process_website_content(website,content,items_amount_old, website_content_listbox,progress_callback,stop_flag,stop_scan,debug):
+    items_amount = 0
+    entry_xl = []
+    soup = BeautifulSoup(content, 'html.parser')
+    script_tags = soup.find_all('script', type='application/ld+json')
+
+    if re.match(r'https://hintaopas\.fi/c/.*', website):
+        debug.d_print("Scanning category list")
+
+    elif "hintaopas.fi" in website:
+        debug.d_print("Scanning main page")
+        list_items = soup.find_all('li', class_='SubLevelItem-sc-1niqwua-6 cLkuDP')
+        for item in list_items:
+            name = item.a.text
+            link = item.a['href']
+            entry_xl.append((name, "https://hintaopas.fi" + link))
+            items_amount += 0
+        
+        items_amount_old = items_amount
+        columns =("Category", "Link")
+        current_time = datetime.datetime.now().strftime("%H:%M:%S")
+        entry = f"{current_time} - The site's listings were updated (from {items_amount_old} to {items_amount})..."
         return entry, entry_xl, items_amount_old, columns
