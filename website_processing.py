@@ -173,6 +173,22 @@ def hintaopas_process_website_content(website,content,items_amount_old, website_
 
     if re.match(r'https://hintaopas\.fi/c/.*', website):
         debug.d_print("Scanning category list")
+        pattern = r'"title":"(.*?)","url":"(.*?)"'
+        matches = re.findall(pattern, content)
+        debug.d_print("Trying to collect using 1st method")
+        for match in matches:
+            item = match[0]
+            link = match[1]
+            if len(item) > 20:
+                continue
+            item = item.strip().rstrip("N")
+            entry_xl.append((item,"https://hintaopas.fi" + link))
+            items_amount += 1
+        items_amount_old = items_amount
+        columns =("Category", "Link")
+        current_time = datetime.datetime.now().strftime("%H:%M:%S")
+        entry = f"{current_time} - The site's listings were updated (from {items_amount_old} to {items_amount})..."
+        return entry, entry_xl, items_amount_old, columns
 
     elif "hintaopas.fi" in website:
         debug.d_print("Scanning main page")
@@ -181,7 +197,7 @@ def hintaopas_process_website_content(website,content,items_amount_old, website_
             name = item.a.text
             link = item.a['href']
             entry_xl.append((name, "https://hintaopas.fi" + link))
-            items_amount += 0
+            items_amount += 1
         
         items_amount_old = items_amount
         columns =("Category", "Link")
