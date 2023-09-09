@@ -165,19 +165,40 @@ def hinta_process_website_content(website,content,items_amount_old, website_cont
         progress_callback(1,1)
         return entry, entry_xl, items_amount_old, columns
 
-def hintaopas_process_website_content(website,content,items_amount_old, website_content_listbox,progress_callback,stop_flag,stop_scan,debug):
+def hintaopas_process_website_content(website, content, items_amount_old, website_content_listbox, progress_callback, stop_flag, stop_scan, debug):
     items_amount = 0
     entry_xl = []
     soup = BeautifulSoup(content, 'html.parser')
     script_tags = soup.find_all('script', type='application/ld+json')
-
-    if re.match(r'https://hintaopas\.fi/c/.*', website):
+    
+    if re.match(r'^https://hintaopas\.fi/c/[^?]+\?brand=\d+$', website):
+        debug.d_print("Scanning brand list")
+        progress_callback(0,1)
+        product_entries = soup.find_all('li', {'data-test': 'ProductGridCard'})
+        for idx, product_entry in enumerate(product_entries, start=1):
+            item = product_entry.find('span', {'data-test': 'ProductName'}).text
+            price = product_entry.find('span', {'class': 'Text--ozkt7z hJMVah'}).text
+            price = re.sub("[^0-9,.]", "", price)
+            price = re.sub(",", ".", price)
+            link = product_entry.find('a', {'data-test': 'InternalLink'})['href']
+            entry_xl.append((item,price, "https://hinta.fi" + link))
+            items_amount += 1
+        items_amount_old = items_amount
+        columns = ("Item", "Price", "Link")
+        current_time = datetime.datetime.now().strftime("%H:%M:%S")
+        entry = f"{current_time} - The site's listings were updated (from {items_amount_old} to {items_amount})..."
+        progress_callback(1,1)
+        return entry, entry_xl, items_amount_old, columns
+    elif re.match(r'https://hintaopas\.fi/c/.*', website):
         debug.d_print("Scanning category list")
+        progress_callback(0,1)
         pattern = r'"title":"(.*?)","url":"(.*?)"'
         matches = re.findall(pattern, content)
         debug.d_print("Trying to collect using 1st method")
         for match in matches:
             item = match[0]
+            item_split = item.split("\\x", 1)
+            item = item_split[0]
             link = match[1]
             if len(item) > 20:
                 continue
@@ -188,10 +209,12 @@ def hintaopas_process_website_content(website,content,items_amount_old, website_
         columns =("Category", "Link")
         current_time = datetime.datetime.now().strftime("%H:%M:%S")
         entry = f"{current_time} - The site's listings were updated (from {items_amount_old} to {items_amount})..."
+        progress_callback(0,1)
         return entry, entry_xl, items_amount_old, columns
 
     elif "hintaopas.fi" in website:
         debug.d_print("Scanning main page")
+        progress_callback(0,1)
         list_items = soup.find_all('li', class_='SubLevelItem-sc-1niqwua-6 cLkuDP')
         for item in list_items:
             name = item.a.text
@@ -203,4 +226,5 @@ def hintaopas_process_website_content(website,content,items_amount_old, website_
         columns =("Category", "Link")
         current_time = datetime.datetime.now().strftime("%H:%M:%S")
         entry = f"{current_time} - The site's listings were updated (from {items_amount_old} to {items_amount})..."
+        progress_callback(1,1)
         return entry, entry_xl, items_amount_old, columns
