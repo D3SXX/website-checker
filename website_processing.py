@@ -171,7 +171,25 @@ def hintaopas_process_website_content(website, content, items_amount_old, websit
     soup = BeautifulSoup(content, 'html.parser')
     script_tags = soup.find_all('script', type='application/ld+json')
     
-    if re.match(r'^https://hintaopas\.fi/c/[^?]+\?brand=\d+$', website):
+    if re.match(r'^https://hintaopas\.fi/product\.php\?p=\d+$',website):
+        debug.d_print("Scanning product list")
+        progress_callback(0,1)
+        for script in script_tags:
+            print(script)
+            product_data = json.loads(script.string)
+            offers = product_data.get("offers", {})
+            item = product_data.get("name", "")
+            price = offers.get("lowPrice", 0)
+            link = offers.get("url", "")
+            entry_xl.append((item,price,link))
+            items_amount += 1
+        items_amount_old = items_amount
+        columns = ("Item", "Price", "Link")
+        current_time = datetime.datetime.now().strftime("%H:%M:%S")
+        entry = f"{current_time} - The site's listings were updated (from {items_amount_old} to {items_amount})..."
+        progress_callback(1,1)
+        return entry, entry_xl, items_amount_old, columns
+    elif re.match(r'^https://hintaopas\.fi/c/[^?]+\?brand=\d+$', website):
         debug.d_print("Scanning brand list")
         progress_callback(0,1)
         product_entries = soup.find_all('li', {'data-test': 'ProductGridCard'})
@@ -181,7 +199,7 @@ def hintaopas_process_website_content(website, content, items_amount_old, websit
             price = re.sub("[^0-9,.]", "", price)
             price = re.sub(",", ".", price)
             link = product_entry.find('a', {'data-test': 'InternalLink'})['href']
-            entry_xl.append((item,price, "https://hinta.fi" + link))
+            entry_xl.append((item,price, "https://hintaopas.fi" + link))
             items_amount += 1
         items_amount_old = items_amount
         columns = ("Item", "Price", "Link")
