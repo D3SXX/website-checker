@@ -174,17 +174,21 @@ def hintaopas_process_website_content(website, content, items_amount_old, websit
     if re.match(r'^https://hintaopas\.fi/product\.php\?p=\d+$',website):
         debug.d_print("Scanning product list")
         progress_callback(0,1)
-        for script in script_tags:
-            print(script)
-            product_data = json.loads(script.string)
-            offers = product_data.get("offers", {})
-            item = product_data.get("name", "")
-            price = offers.get("lowPrice", 0)
-            link = offers.get("url", "")
-            entry_xl.append((item,price,link))
+        anchor_tags = soup.find_all('a', class_='ExternalLink-sc-1ap2oa8-2')
+        for tag in anchor_tags:
+            try:
+                store = tag.find('span', class_='StoreInfoTitle-sc-bc2k22-1').text.strip()
+                item = tag.find('span', class_='StyledProductName-sc-1v7pabx-2').text.strip()
+                price = tag.find('h4', class_='PriceLabel-sc-lboeq9-0').text.strip().replace(' €', '')
+                link = tag['href']
+                rating_container = tag.find('div', class_='RatingContainer-sc-u1xymf-0')
+                rating = rating_container['data-rating'] if rating_container else 'N/A'
+            except:
+                pass
+            entry_xl.append((store,rating,item,price,link))
             items_amount += 1
         items_amount_old = items_amount
-        columns = ("Item", "Price", "Link")
+        columns = ("Store","Store's Rating","Item", "Price", "Link")
         current_time = datetime.datetime.now().strftime("%H:%M:%S")
         entry = f"{current_time} - The site's listings were updated (from {items_amount_old} to {items_amount})..."
         progress_callback(1,1)
@@ -192,13 +196,13 @@ def hintaopas_process_website_content(website, content, items_amount_old, websit
     elif re.match(r'^https://hintaopas\.fi/c/[^?]+\?brand=\d+$', website):
         debug.d_print("Scanning brand list")
         progress_callback(0,1)
-        product_entries = soup.find_all('li', {'data-test': 'ProductGridCard'})
-        for idx, product_entry in enumerate(product_entries, start=1):
-            item = product_entry.find('span', {'data-test': 'ProductName'}).text
-            price = product_entry.find('span', {'class': 'Text--ozkt7z hJMVah'}).text
-            price = re.sub("[^0-9,.]", "", price)
-            price = re.sub(",", ".", price)
-            link = product_entry.find('a', {'data-test': 'InternalLink'})['href']
+        table_rows = soup.find_all('tr', class_='Tr-sc-1stvbsu-2 chMRiA')
+        for row in table_rows:
+            product_link = row.find('a', class_='InternalLink-sc-1ap2oa8-1')
+            item = product_link.find('h3', class_='ProductNameTable-sc-1stvbsu-3').text.strip()
+            price_element = row.find('span', class_='PriceLabel-sc-lboeq9-0')
+            price = price_element.text.strip().replace(' €', '')
+            link = product_link['href']
             entry_xl.append((item,price, "https://hintaopas.fi" + link))
             items_amount += 1
         items_amount_old = items_amount
