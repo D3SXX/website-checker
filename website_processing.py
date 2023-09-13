@@ -179,14 +179,15 @@ def hintaopas_process_website_content(website, content, items_amount_old, websit
             try:
                 store = tag.find('span', class_='StoreInfoTitle-sc-bc2k22-1').text.strip()
                 item = tag.find('span', class_='StyledProductName-sc-1v7pabx-2').text.strip()
-                price = tag.find('h4', class_='PriceLabel-sc-lboeq9-0').text.strip().replace(' €', '')
+                price = tag.find('h4', class_='PriceLabel-sc-lboeq9-0').text.strip()
+                price = float(re.sub("[^0-9,.]", "", price).replace(',', '.'))
                 link = tag['href']
                 rating_container = tag.find('div', class_='RatingContainer-sc-u1xymf-0')
                 rating = rating_container['data-rating'] if rating_container else 'N/A'
+                entry_xl.append((store,rating,item,price,link))
+                items_amount += 1
             except:
                 pass
-            entry_xl.append((store,rating,item,price,link))
-            items_amount += 1
         items_amount_old = items_amount
         columns = ("Store","Store's Rating","Item", "Price", "Link")
         current_time = datetime.datetime.now().strftime("%H:%M:%S")
@@ -195,16 +196,30 @@ def hintaopas_process_website_content(website, content, items_amount_old, websit
         return entry, entry_xl, items_amount_old, columns
     elif re.match(r'^https://hintaopas\.fi/c/[^?]+\?brand=\d+$', website):
         debug.d_print("Scanning brand list")
+        debug.d_print("Trying to get data using the the first way")
         progress_callback(0,1)
         table_rows = soup.find_all('tr', class_='Tr-sc-1stvbsu-2 chMRiA')
         for row in table_rows:
             product_link = row.find('a', class_='InternalLink-sc-1ap2oa8-1')
             item = product_link.find('h3', class_='ProductNameTable-sc-1stvbsu-3').text.strip()
             price_element = row.find('span', class_='PriceLabel-sc-lboeq9-0')
-            price = price_element.text.strip().replace(' €', '')
+            price = price_element.text.strip()
+            price = float(re.sub("[^0-9,.]", "", price).replace(',', '.'))
             link = product_link['href']
             entry_xl.append((item,price, "https://hintaopas.fi" + link))
             items_amount += 1
+        if items_amount == 0:
+            list_items = soup.find_all('li', attrs={'data-test': 'ProductGridCard'})
+            for item in list_items:
+                product_link = item.find('a', class_='InternalLink-sc-1ap2oa8-1')
+                name = product_link.find('span', class_='Text--j47ncs khWbVp titlesmalltext').text.strip()
+                price_element = item.find('span', class_='Text--j47ncs iolWON')
+                price = price_element.text.strip()
+                price = float(re.sub("[^0-9,.]", "", price).replace(',', '.'))
+                link = product_link['href']
+                entry_xl.append((item,price, "https://hintaopas.fi" + link))
+                items_amount += 1
+
         items_amount_old = items_amount
         columns = ("Item", "Price", "Link")
         current_time = datetime.datetime.now().strftime("%H:%M:%S")
@@ -216,7 +231,6 @@ def hintaopas_process_website_content(website, content, items_amount_old, websit
         progress_callback(0,1)
         pattern = r'"title":"(.*?)","url":"(.*?)"'
         matches = re.findall(pattern, content)
-        debug.d_print("Trying to collect using 1st method")
         for match in matches:
             item = match[0]
             item_split = item.split("\\x", 1)
