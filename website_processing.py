@@ -209,6 +209,7 @@ def hintaopas_process_website_content(website, content, items_amount_old, websit
             entry_xl.append((item,price, "https://hintaopas.fi" + link))
             items_amount += 1
         if items_amount == 0:
+            debug.warning_print("Got 0 items from the first scan, perfoming product scan instead","W")
             list_items = soup.find_all('li', attrs={'data-test': 'ProductGridCard'})
             for item in list_items:
                 product_link = item.find('a', class_='InternalLink-sc-1ap2oa8-1')
@@ -217,7 +218,7 @@ def hintaopas_process_website_content(website, content, items_amount_old, websit
                 price = price_element.text.strip()
                 price = float(re.sub("[^0-9,.]", "", price).replace(',', '.'))
                 link = product_link['href']
-                entry_xl.append((item,price, "https://hintaopas.fi" + link))
+                entry_xl.append((name,price, "https://hintaopas.fi" + link))
                 items_amount += 1
 
         items_amount_old = items_amount
@@ -229,20 +230,32 @@ def hintaopas_process_website_content(website, content, items_amount_old, websit
     elif re.match(r'https://hintaopas\.fi/c/.*', website):
         debug.d_print("Scanning category list")
         progress_callback(0,1)
-        pattern = r'"title":"(.*?)","url":"(.*?)"'
-        matches = re.findall(pattern, content)
-        for match in matches:
-            item = match[0]
-            item_split = item.split("\\x", 1)
-            item = item_split[0]
-            link = match[1]
-            if len(item) > 20:
-                continue
-            item = item.strip().rstrip("N")
-            entry_xl.append((item,"https://hintaopas.fi" + link))
-            items_amount += 1
+        entry_data = soup.find_all('li', style='flex:0 0 110px')
+
+        for data in entry_data:
+            link_element = data.find('a', class_='InternalLink-sc-1ap2oa8-1')
+            name_element = data.find('span', class_='Text--j47ncs gEcihA titlesmalltext')
+            if link_element and name_element:
+                item = name_element.text.strip()
+                link = link_element['href']
+                entry_xl.append((item,"https://hintaopas.fi" + link))
+                items_amount += 1
+        columns =("Category","Link")
+
+        if items_amount == 0:
+            debug.warning_print("Got 0 items from the first scan, perfoming item scan instead","W")
+            entry_data = soup.find_all('tr', class_='Tr-sc-1stvbsu-2 chMRiA')
+            for data in entry_data:
+                item = data.find('h3', class_='ProductNameTable-sc-1stvbsu-3').text.strip()
+                price_element = data.find('span', class_='PriceLabel-sc-lboeq9-0')
+                price = price_element.text.strip() if price_element else ""
+                price = float(re.sub("[^0-9,.]", "", price).replace(',', '.'))
+                link_element = data.find('a', class_='InternalLink-sc-1ap2oa8-1')
+                link = link_element['href'] if link_element else ""
+                entry_xl.append((item,price,"https://hintaopas.fi" + link))
+                items_amount += 1
+            columns =("Category","Price","Link")
         items_amount_old = items_amount
-        columns =("Category", "Link")
         current_time = datetime.datetime.now().strftime("%H:%M:%S")
         entry = f"{current_time} - The site's listings were updated (from {items_amount_old} to {items_amount})..."
         progress_callback(0,1)
