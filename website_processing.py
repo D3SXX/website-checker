@@ -212,14 +212,17 @@ def hintaopas_process_website_content(website, content, items_amount_old, websit
             debug.warning_print("Got 0 items from the first scan, perfoming product scan instead","W")
             list_items = soup.find_all('li', attrs={'data-test': 'ProductGridCard'})
             for item in list_items:
-                product_link = item.find('a', class_='InternalLink-sc-1ap2oa8-1')
-                name = product_link.find('span', class_='Text--j47ncs khWbVp titlesmalltext').text.strip()
-                price_element = item.find('span', class_='Text--j47ncs iolWON')
-                price = price_element.text.strip()
-                price = float(re.sub("[^0-9,.]", "", price).replace(',', '.'))
-                link = product_link['href']
-                entry_xl.append((name,price, "https://hintaopas.fi" + link))
-                items_amount += 1
+                try:
+                    product_link = item.find('a', class_='InternalLink-sc-1ap2oa8-1')
+                    name = product_link.find('span', class_='Text--j47ncs khWbVp titlesmalltext').text.strip()
+                    price_element = item.find('span', class_='Text--j47ncs iolWON')
+                    price = price_element.text.strip()
+                    price = float(re.sub("[^0-9,.]", "", price).replace(',', '.'))
+                    link = product_link['href']
+                    entry_xl.append((name,price, "https://hintaopas.fi" + link))
+                    items_amount += 1
+                except:
+                    pass
 
         items_amount_old = items_amount
         columns = ("Item", "Price", "Link")
@@ -240,7 +243,7 @@ def hintaopas_process_website_content(website, content, items_amount_old, websit
                 link = link_element['href']
                 entry_xl.append((item,"https://hintaopas.fi" + link))
                 items_amount += 1
-        columns =("Category","Link")
+        columns = ("Category","Link")
 
         if items_amount == 0:
             debug.warning_print("Got 0 items from the first scan, perfoming item scan instead","W")
@@ -249,12 +252,29 @@ def hintaopas_process_website_content(website, content, items_amount_old, websit
                 item = data.find('h3', class_='ProductNameTable-sc-1stvbsu-3').text.strip()
                 price_element = data.find('span', class_='PriceLabel-sc-lboeq9-0')
                 price = price_element.text.strip() if price_element else ""
-                price = float(re.sub("[^0-9,.]", "", price).replace(',', '.'))
+                price = float(re.sub("[^0-9,]", "", price).replace(',', '.'))
                 link_element = data.find('a', class_='InternalLink-sc-1ap2oa8-1')
                 link = link_element['href'] if link_element else ""
                 entry_xl.append((item,price,"https://hintaopas.fi" + link))
                 items_amount += 1
-            columns =("Category","Price","Link")
+            columns = list(columns)
+            columns.clear()
+            columns = ("Category","Price","Link")
+        if items_amount == 0:
+            debug.warning_print("Got 0 items from the second scan, perfoming another item scan","W")
+            entry_data = soup.find_all('li', class_='OffersGridItem-sc-812954-1 kNYiDB')
+            for data in entry_data:
+                item = data.find('span', class_='Text--j47ncs khWbVp titlesmalltext').text.strip()
+                price_element = data.find('span', class_='Text--j47ncs iolWON')
+                price = price_element.text.strip() if price_element else ""
+                price = float(re.sub("[^0-9,]", "", price).replace(',', '.'))
+                link_element = data.find('a', class_='InternalLink-sc-1ap2oa8-1')
+                link = link_element['href'] if link_element else ""
+                entry_xl.append((item,price,"https://hintaopas.fi" + link))
+                items_amount += 1
+            columns = list(columns)
+            columns.clear()
+            columns = ("Category","Price","Link")
         items_amount_old = items_amount
         current_time = datetime.datetime.now().strftime("%H:%M:%S")
         entry = f"{current_time} - The site's listings were updated (from {items_amount_old} to {items_amount})..."
